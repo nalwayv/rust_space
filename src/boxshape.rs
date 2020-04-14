@@ -33,6 +33,11 @@ impl<'a> BoxShape<'a> {
         }
     }
 
+    /// toggle debug
+    pub fn toggle_debug(&mut self){
+        self.is_debug = !self.is_debug;
+    }
+
     /// check for overlap
     fn check_overlap(&self, min_a: f32, max_a: f32, min_b: f32, max_b: f32) -> bool {
         min_b <= max_a && min_a <= max_b
@@ -40,6 +45,10 @@ impl<'a> BoxShape<'a> {
 
     /// check for box overlap
     pub fn check_collision(&self, other: &BoxShape) -> bool {
+        if !self.is_active && !other.is_active{
+            return false;
+        }
+
         // shape 1
         let min_x1 = self.position.x;
         let max_x1 = self.position.x + self.size.x;
@@ -60,7 +69,7 @@ impl<'a> BoxShape<'a> {
     }
 
     /// change color of box for collison indication
-    pub fn switch_color(&mut self, value: bool) {
+    pub fn toggle_color(&mut self, value: bool) {
         self.color_switch = value;
     }
     /// draw box to screen
