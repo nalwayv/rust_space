@@ -13,30 +13,27 @@ pub struct Bullet {
 }
 
 impl Bullet {
-    pub fn new() -> Self {
+    pub fn new(x: f32, y:f32, ang:f32) -> Self {
         let bullet_v = [Vertex::with_pos((-5.0, 0.0)), Vertex::with_pos((5.0, 0.0))];
         let draw_bv = [Vertex::default(); 2];
 
         Self {
             base: BaseObject {
-                position: Vector2f::default(),
+                position: Vector2f::new(x, y),
                 velocity: Vector2f::default(),
-                acceleration: 350.0,
+                acceleration: 400.0,
                 is_active: false,
-                angle: 0.0,
+                angle: ang,
             },
             life_timer: 0.0,
             max_life_time: 1.0,
+            
             bullet_points: bullet_v,
             transform_bullet_points: draw_bv,
         }
     }
 
-    pub fn init(&mut self, position: (f32, f32), ang: f32) {
-        self.base.angle = ang;
-        self.base.position.x = position.0;
-        self.base.position.y = position.1;
-
+    pub fn init(&mut self) {
         self.base.velocity.x = self.base.angle.cos() * self.base.acceleration;
         self.base.velocity.y = self.base.angle.sin() * self.base.acceleration;
 
@@ -73,7 +70,6 @@ impl Bullet {
 
     pub fn update(&mut self, delta: f32) {
         if self.base.is_active {
-            // self.shape.move_(self.base.velocity * delta);
             self.base.position += self.base.velocity * delta;
 
             self.update_points();

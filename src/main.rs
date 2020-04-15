@@ -23,6 +23,7 @@ use crate::ship::*;
 // ----------
 // CONSTS
 // ----------
+
 const SCREEN_WIDTH: u32 = 800;
 const SCREEN_HEIGHT: u32 = 600;
 
@@ -45,15 +46,15 @@ fn random_angle() -> f32 {
 }
 
 /// get vector normal between two points
-fn get_vector_normal(p1: (f32, f32), p2: (f32, f32)) -> (f32, f32) {
+fn get_vector_normal(p1: Vector2f, p2: Vector2f) -> Vector2f {
     // (-y, x)
-    (-(p2.1 - p1.1), p2.0 - p1.0)
+    Vector2f::new(-(p2.y - p1.y), p2.x - p1.x)
 }
 
 /// get vector dot product between two points
-fn get_dot_product(v1: (f32, f32), v2: (f32, f32)) -> f32 {
-    let x = v1.0 * v2.0;
-    let y = v1.1 * v2.1;
+fn get_dot_product(v1: Vector2f, v2: Vector2f) -> f32 {
+    let x = v1.x * v2.x;
+    let y = v1.y * v2.y;
     let result = x + y;
     result
 }
@@ -61,7 +62,8 @@ fn get_dot_product(v1: (f32, f32), v2: (f32, f32)) -> f32 {
 // TODO: Separated Axis Theorem
 // link https://www.youtube.com/watch?v=7Ik2vowGcU0&t=414s
 // problem is all objects can not have concave points
-fn sat(points_1: Vec<(f32, f32)>, points_2: Vec<(f32, f32)>) -> bool {
+// fn sat(points_1: Vec<(f32, f32)>, points_2: Vec<(f32, f32)>) -> bool {
+fn sat(points_1: &Vec<Vector2f>, points_2: &Vec<Vector2f>) -> bool {
     // check shadow overlap
     let mut p1 = &points_1;
     let mut p2 = &points_2;
@@ -77,10 +79,6 @@ fn sat(points_1: Vec<(f32, f32)>, points_2: Vec<(f32, f32)>) -> bool {
             let y = (x + 1) % points_1.len();
             // norm
             let normal = get_vector_normal(p1[x], p1[y]);
-            // unit vector
-            // let length = (normal.0 * normal.0 + normal.1 * normal.1).sqrt();
-            // normal.0 /= length;
-            // normal.1 /= length;
 
             // shape 1
             let mut min_value1 = INFINITY;
@@ -111,6 +109,19 @@ fn sat(points_1: Vec<(f32, f32)>, points_2: Vec<(f32, f32)>) -> bool {
     true
 }
 
+fn filter_bullets(bullets: &mut Vec<Bullet>) {
+    if !bullets.is_empty() {
+        bullets.retain(|x| x.is_active());
+    }
+}
+
+fn populate_key_map(key_map: &mut HashMap<&Key, bool>) {
+    key_map.insert(&Key::W, false);
+    key_map.insert(&Key::A, false);
+    key_map.insert(&Key::D, false);
+    key_map.insert(&Key::Space, false);
+}
+
 /// main run for sfml window
 fn run(width: u32, height: u32) {
     let mut window = RenderWindow::new((width, height), "space", Style::CLOSE, &Default::default());
@@ -122,20 +133,16 @@ fn run(width: u32, height: u32) {
 
     // key maps
     let mut key_map: HashMap<&Key, bool> = HashMap::new();
-    key_map.insert(&Key::W, false);
-    key_map.insert(&Key::A, false);
-    key_map.insert(&Key::D, false);
-    key_map.insert(&Key::Space, false);
+    populate_key_map(&mut key_map);
 
     // TODO: ship
     let center_x = width as f32 * 0.5;
     let center_y = height as f32 * 0.5;
     let mut ship = Ship::new(center_x, center_y, 0.);
-    let mut ship_box = BoxShape::new(ship.get_position_x(), ship.get_position_y(), 70.0, 70.0);
+    let mut ship_box = BoxShape::new(ship.get_position().x, ship.get_position().y, 70.0, 70.0);
 
     // TODO: bullets
-    let mut is_shooting = false;
-    let mut can_shoot_timer = 0.0;
+    let mut shoot_time = 0.0;
     let max_shoot_time = 0.5;
     let mut bullets: Vec<Bullet> = Vec::new();
 
@@ -143,8 +150,8 @@ fn run(width: u32, height: u32) {
     let mut asteroid = Asteroid::new();
     asteroid.init_large(500.0, 350.0, random_angle(), random_bool());
     let mut asteroid_box = BoxShape::new(
-        asteroid.get_position_x(),
-        asteroid.get_position_y(),
+        asteroid.get_position().x,
+        asteroid.get_position().y,
         150.0,
         150.0,
     );
@@ -157,7 +164,7 @@ fn run(width: u32, height: u32) {
                 Event::KeyPressed { code, .. } => match code {
                     Key::Escape => is_running = false,
                     Key::P => is_paused = !is_paused,
-                    Key::Tab =>{
+                    Key::Tab => {
                         // display box
                         ship_box.toggle_debug();
                         asteroid_box.toggle_debug();
@@ -181,7 +188,6 @@ fn run(width: u32, height: u32) {
                         if let Some(x) = key_map.get_mut(&Key::Space) {
                             *x = true;
                         }
-                        is_shooting = true;
                     }
                     _ => {}
                 },
@@ -205,7 +211,6 @@ fn run(width: u32, height: u32) {
                         if let Some(x) = key_map.get_mut(&Key::Space) {
                             *x = false;
                         }
-                        is_shooting = false;
                     }
                     _ => {}
                 },
@@ -243,33 +248,45 @@ fn run(width: u32, height: u32) {
             // collision
             // only call sat if box collision goes off
             if ship_box.check_collision(&asteroid_box) {
+                ship_box.toggle_color(true);
                 asteroid_box.toggle_color(true);
 
-                if sat(ship.get_transform_points(), asteroid.get_transform_points()) {
-                    println!("hit asteroid");
+                if sat(ship.get_tp(), asteroid.get_tp()) {
+                    ship.toggle_color(true);
+                    asteroid.toggle_color(true);
+                } else {
+                    ship.toggle_color(false);
+                    asteroid.toggle_color(false);
                 }
             } else {
+                ship_box.toggle_color(false);
                 asteroid_box.toggle_color(false);
             }
 
-            // ship
-            can_shoot_timer += delta;
-            if is_shooting && can_shoot_timer > max_shoot_time {
-                let px = ship.get_position_x();
-                let py = ship.get_position_y();
-                let ang = ship.get_angle();
+            // shoot
+            shoot_time += delta;
+            if ship.is_fireing() && shoot_time > max_shoot_time {
+                let new_b = Bullet::new(
+                    ship.get_position().x,
+                    ship.get_position().y,
+                    ship.get_angle(),
+                );
 
-                let mut new_b = Bullet::new();
-                new_b.init((px, py), ang);
                 bullets.push(new_b);
 
-                can_shoot_timer = 0.0;
+                if !bullets.is_empty() {
+                    if let Some(l) = bullets.last_mut() {
+                        l.init();
+                    }
+                }
+                shoot_time = 0.;
             }
+            filter_bullets(&mut bullets);
 
+            // ship
             ship.update(delta);
             ship_box.set_position(ship.get_position());
             ship_box.update(delta);
-            
             // asteroid
             asteroid.update(delta);
             asteroid_box.set_position(asteroid.get_position());
@@ -282,9 +299,6 @@ fn run(width: u32, height: u32) {
                         bullet.update(delta);
                     }
                 }
-            }
-            if !bullets.is_empty() {
-                bullets.retain(|x| x.is_active());
             }
         } else {
             // so when un pausing objects

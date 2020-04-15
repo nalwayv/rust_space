@@ -17,9 +17,10 @@ pub struct Ship {
     is_turning_right: bool,
     is_thrusting: bool,
     is_shooting: bool,
-
+    flip_color: bool,
     ship_points: [Vertex; 4],
     transform_ship_points: [Vertex; 4],
+    transform_points: Vec<Vector2f>,
     thruster_points: [Vertex; 4],
     transform_thruster_points: [Vertex; 4],
 }
@@ -44,6 +45,8 @@ impl Ship {
 
         let draw_tv = [Vertex::default(); 4];
 
+        let tp = vec![Vector2f::default(); 4];
+
         Self {
             base: BaseObject {
                 position: Vector2f::new(x, y),
@@ -59,19 +62,13 @@ impl Ship {
             is_turning_right: false,
             is_thrusting: false,
             is_shooting: false,
+            flip_color: false,
             ship_points: ship_v,
             transform_ship_points: draw_sv,
+            transform_points: tp,
             thruster_points: thruster_v,
             transform_thruster_points: draw_tv,
         }
-    }
-
-    pub fn get_position_x(&self) -> f32 {
-        self.base.position.x
-    }
-
-    pub fn get_position_y(&self) -> f32 {
-        self.base.position.y
     }
 
     pub fn get_position(&self) -> Vector2f {
@@ -82,16 +79,17 @@ impl Ship {
         self.base.angle
     }
 
-    pub fn get_transform_points(&self) -> Vec<(f32, f32)> {
-        // leave out last as its a copy of the first.
-        let n = self.transform_ship_points.len();
-        let mut result = vec![(0., 0.); 3];
+    pub fn toggle_color(&mut self, value: bool) {
+        self.flip_color = value;
+    }
 
-        for (idx, p) in self.transform_ship_points[0..n - 1].iter().enumerate() {
-            result[idx] = (p.position.x, p.position.y);
-        }
+    /// get vec of the current transform points for this ship
+    pub fn get_tp(&self) -> &Vec<Vector2f> {
+        &self.transform_points
+    }
 
-        result
+    pub fn is_fireing(&self)->bool{
+        self.is_shooting
     }
 
     pub fn inputs(&mut self, key_map: &HashMap<&Key, bool>) {
@@ -134,6 +132,7 @@ impl Ship {
         // [ cos + -sin ]
         // [ sin +  cos ]
         // ship
+        // let n = self.ship_points.len();
         for (idx, vert) in self.ship_points.iter_mut().enumerate() {
             let x = vert.position.x;
             let y = vert.position.y;
@@ -143,6 +142,14 @@ impl Ship {
             self.transform_ship_points[idx].position.y =
                 (x * self.base.angle.sin()) + (y * self.base.angle.cos());
             self.transform_ship_points[idx].position += self.base.position;
+
+            if self.flip_color {
+                self.transform_ship_points[idx].color = Color::RED;
+            } else {
+                self.transform_ship_points[idx].color = Color::WHITE;
+            }
+
+            self.transform_points[idx] = self.transform_ship_points[idx].position;
         }
 
         if self.is_thrusting {
@@ -158,6 +165,12 @@ impl Ship {
                     (x * self.base.angle.sin()) + (y * self.base.angle.cos());
 
                 self.transform_thruster_points[idx].position += self.base.position;
+
+                if self.flip_color {
+                    self.transform_thruster_points[idx].color = Color::RED;
+                } else {
+                    self.transform_thruster_points[idx].color = Color::WHITE;
+                }
             }
         }
     }
@@ -201,11 +214,6 @@ impl Ship {
         if self.is_thrusting {
             self.base.velocity.x += self.base.angle.cos() * self.base.acceleration * delta;
             self.base.velocity.y += self.base.angle.sin() * self.base.acceleration * delta;
-        }
-
-        // TODO: shoot
-        if self.is_shooting {
-            // println!("bang!");
         }
 
         // slow down/top speed

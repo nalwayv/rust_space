@@ -20,6 +20,8 @@ pub struct Asteroid {
     screen_padding: f32,
     asteroid_points: [Vertex; 9],
     transform_asteroid_points: [Vertex; 9],
+    transform_points: Vec<Vector2f>,
+    flip_color: bool,
 }
 
 #[allow(dead_code)]
@@ -39,22 +41,11 @@ impl Asteroid {
             screen_padding: 0.0,
             asteroid_points: [Vertex::default(); 9],
             transform_asteroid_points: [Vertex::default(); 9],
+
+            transform_points: vec![Vector2f::default(); 9],
+
+            flip_color:false,
         }
-    }
-
-    /// return current x position
-    pub fn get_position_x(&self) -> f32 {
-        self.base.position.x
-    }
-
-    /// return current y position
-    pub fn get_position_y(&self) -> f32 {
-        self.base.position.y
-    }
-
-    /// return current screen position
-    pub fn get_position(&self) -> Vector2f {
-        self.base.position
     }
 
     /// init a new asteroid to a small type
@@ -156,19 +147,18 @@ impl Asteroid {
         self.base.is_active = true;
     }
 
-    /// return a vector of all current tranformed pointes used to
-    /// create this asteroids outline.
-    pub fn get_transform_points(&self) -> Vec<(f32, f32)> {
-        // leave out last as its just a copy of the first
-        // for closing the loop for window.draw_primitives
-        let n = self.transform_asteroid_points.len();
-        let mut result = vec![(0.0, 0.0); 8];
+    /// return current screen position
+    pub fn get_position(&self) -> Vector2f {
+        self.base.position
+    }
 
-        for (idx, p) in self.transform_asteroid_points[0..n - 1].iter().enumerate() {
-            result[idx] = (p.position.x, p.position.y);
-        }
+    pub fn toggle_color(&mut self, value: bool){
+        self.flip_color = value;
+    }
 
-        result
+    /// get vec of the current transform points for this asteroid
+    pub fn get_tp(&self)->&Vec<Vector2f>{
+        &self.transform_points
     }
 
     /// update transform points
@@ -183,6 +173,14 @@ impl Asteroid {
             self.transform_asteroid_points[idx].position.x = new_x;
             self.transform_asteroid_points[idx].position.y = new_y;
             self.transform_asteroid_points[idx].position += self.base.position;
+
+            self.transform_points[idx] = self.transform_asteroid_points[idx].position;
+
+            if self.flip_color{
+                self.transform_asteroid_points[idx].color = Color::RED;
+            }else{
+                self.transform_asteroid_points[idx].color = Color::WHITE;
+            }
         }
     }
 

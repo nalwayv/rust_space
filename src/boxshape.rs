@@ -6,7 +6,7 @@ pub struct BoxShape<'a> {
     position: Vector2f,
     size: Vector2f,
     offset: Vector2f,
-    color_switch: bool,
+    flip_color: bool,
     is_active: bool,
     is_debug: bool,
     shape: RectangleShape<'a>,
@@ -26,7 +26,7 @@ impl<'a> BoxShape<'a> {
             position: Vector2f::new(x, y),
             size: Vector2f::new(width, height),
             offset: Vector2f::new(width / 2.0, height / 2.0),
-            color_switch: false,
+            flip_color: false,
             is_active: true,
             is_debug: true,
             shape: r,
@@ -38,6 +38,11 @@ impl<'a> BoxShape<'a> {
         self.is_debug = !self.is_debug;
     }
 
+    /// change color of box for collison indication
+    pub fn toggle_color(&mut self, value: bool) {
+        self.flip_color = value;
+    }
+    
     /// check for overlap
     fn check_overlap(&self, min_a: f32, max_a: f32, min_b: f32, max_b: f32) -> bool {
         min_b <= max_a && min_a <= max_b
@@ -49,15 +54,15 @@ impl<'a> BoxShape<'a> {
             return false;
         }
 
-        // shape 1
+        // x
         let min_x1 = self.position.x;
         let max_x1 = self.position.x + self.size.x;
-        let min_y1 = self.position.y;
-        let max_y1 = self.position.y + self.size.y;
-
-        // shape 2
         let min_x2 = other.position.x;
         let max_x2 = other.position.x + other.size.x;
+
+        // y
+        let min_y1 = self.position.y;
+        let max_y1 = self.position.y + self.size.y;
         let min_y2 = other.position.y;
         let max_y2 = other.position.y + other.size.y;
 
@@ -68,10 +73,6 @@ impl<'a> BoxShape<'a> {
         check_a && check_b
     }
 
-    /// change color of box for collison indication
-    pub fn toggle_color(&mut self, value: bool) {
-        self.color_switch = value;
-    }
     /// draw box to screen
     pub fn draw(&mut self, window: &mut RenderWindow) {
         if self.is_active && self.is_debug {
@@ -87,7 +88,7 @@ impl<'a> BoxShape<'a> {
     /// update box screen position
     pub fn update(&mut self, _delta: f32) {
         if self.is_active {
-            if self.color_switch {
+            if self.flip_color {
                 self.shape.set_outline_color(Color::RED);
             } else {
                 self.shape.set_outline_color(Color::WHITE);
