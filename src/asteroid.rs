@@ -5,6 +5,7 @@ use std::f32::consts::PI;
 //
 use crate::baseobject::*;
 use crate::boxshape::*;
+use crate::globals::*;
 
 /// asteroid types
 #[derive(Copy, Clone)]
@@ -31,7 +32,7 @@ pub struct Asteroid {
     debug_box : BoxShape,
 }
 
-#[allow(dead_code)]
+// #[allow(dead_code)]
 impl Asteroid {
     /// new asteroid
     pub fn new(
@@ -120,10 +121,14 @@ impl Asteroid {
         &self.debug_box
     }
 
-    /// return current screen position
-    pub fn get_position(&self) -> Vector2f {
-        self.base.position
-    }
+    // pub fn set_is_active_to(&mut self, value:bool ){
+    //     self.base.is_active = value;
+    // }
+
+    // /// return current screen position
+    // pub fn get_position(&self) -> Vector2f {
+    //     self.base.position
+    // }
 
     /// toggle color
     pub fn toggle_color(&mut self, value: bool) {
@@ -131,7 +136,7 @@ impl Asteroid {
     }
 
     pub fn toggle_debug(&mut self) {
-        self.debug_box.toggle_active();
+        self.is_debug = !self.is_debug;
     }
 
     pub fn toggle_debug_color(&mut self, value: bool) {
@@ -212,13 +217,13 @@ impl Asteroid {
 
             self.base.position += self.base.velocity * self.base.acceleration * delta;
 
-            self.screen_wrap(800., 600., 50.);
+            self.screen_wrap(SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32, 50.);
             self.update_points();
 
-            if self.is_debug{
-                self.debug_box.set_position(self.base.position);
-                self.debug_box.update(delta);
-            }
+            // if self.is_debug{
+            self.debug_box.set_position(self.base.position);
+            self.debug_box.update(delta);
+            // }
         }
     }
 }

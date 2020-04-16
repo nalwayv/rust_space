@@ -49,6 +49,10 @@ impl BoxShape {
         self.is_active = !self.is_active;
     }
 
+    pub fn set_is_actrive_to(&mut self, value:bool){
+        self.is_active = value;
+    }
+
     /// change color of box for collison indication
     pub fn toggle_color(&mut self, value: bool) {
         self.flip_color = value;

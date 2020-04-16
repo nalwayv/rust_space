@@ -6,6 +6,7 @@ use std::f32::consts::PI;
 //
 use crate::baseobject::*;
 use crate::boxshape::*;
+use crate::globals::*;
 
 #[allow(dead_code)]
 pub struct Ship {
@@ -26,7 +27,7 @@ pub struct Ship {
     transform_thruster_points: [Vertex; 4],
     // for debug
     is_debug: bool,
-    debug_box : BoxShape,
+    debug_box: BoxShape,
 }
 
 impl Ship {
@@ -79,10 +80,9 @@ impl Ship {
         }
     }
 
-    pub fn get_box(&self) -> &BoxShape{
+    pub fn get_box(&self) -> &BoxShape {
         &self.debug_box
     }
-    
     pub fn get_position(&self) -> Vector2f {
         self.base.position
     }
@@ -91,24 +91,24 @@ impl Ship {
         self.base.angle
     }
 
+    /// get vec of the current transform points for this ship
+    pub fn get_tp(&self) -> &Vec<Vector2f> {
+        &self.transform_points
+    }
+
     pub fn toggle_color(&mut self, value: bool) {
         self.flip_color = value;
     }
 
-    pub fn toggle_debug(&mut self) {
-        self.debug_box.toggle_active();
+    pub fn toggle_debug(&mut self){
+        self.is_debug = !self.is_debug;
     }
 
     pub fn toggle_debug_color(&mut self, value: bool) {
         self.debug_box.toggle_color(value);
     }
 
-    /// get vec of the current transform points for this ship
-    pub fn get_tp(&self) -> &Vec<Vector2f> {
-        &self.transform_points
-    }
-
-    pub fn is_fireing(&self)->bool{
+    pub fn is_fireing(&self) -> bool {
         self.is_shooting
     }
 
@@ -132,8 +132,8 @@ impl Ship {
 
     pub fn draw(&mut self, window: &mut RenderWindow) {
         // ship
-        if self. base.is_active{
-            if self.is_debug{
+        if self.base.is_active {
+            if self.is_debug {
                 self.debug_box.draw(window);
             }
 
@@ -159,11 +159,11 @@ impl Ship {
         // screen wrap
         let screen_edge = 0.;
 
-        if self.base.position.x > width  + padding {
+        if self.base.position.x > width + padding {
             self.base.position.x = screen_edge - padding;
         }
         if self.base.position.x < screen_edge - padding {
-            self.base.position.x = width  + padding;
+            self.base.position.x = width + padding;
         }
         if self.base.position.y > height + padding {
             self.base.position.y = screen_edge - padding;
@@ -222,7 +222,7 @@ impl Ship {
 
     pub fn update(&mut self, delta: f32) {
         // angle
-        if self.base.is_active{
+        if self.base.is_active {
             if self.base.angle < 0. {
                 self.base.angle += PI * 2.;
             }
@@ -258,13 +258,14 @@ impl Ship {
             }
 
             self.base.position += self.base.velocity * delta;
-            self.screen_wrap(800., 600., 20.);
+            self.screen_wrap(SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32, 20.);
             self.update_verts();
 
-            if self.is_debug{
-                self.debug_box.set_position(self.base.position);
-                self.debug_box.update(delta);
-            }
+            // debug
+            // if self.is_debug {
+            self.debug_box.set_position(self.base.position);
+            self.debug_box.update(delta);
+            // }
         }
     }
 }

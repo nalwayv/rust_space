@@ -6,11 +6,13 @@ mod asteroid;
 mod baseobject;
 mod boxshape;
 mod bullet;
+mod globals;
 mod ship;
 
 use crate::asteroid::*;
 use crate::boxshape::*;
 use crate::bullet::*;
+use crate::globals::*;
 use crate::ship::*;
 use rand::{thread_rng, Rng};
 use sfml::{graphics::*, system::*, window::*};
@@ -18,46 +20,8 @@ use std::collections::HashMap;
 use std::f32::{consts::PI, INFINITY};
 
 // ----------
-// CONSTS
-// ----------
-
-const SCREEN_WIDTH: u32 = 800;
-const SCREEN_HEIGHT: u32 = 600;
-
-// ----------
 // FUNCS
 // ----------
-
-/// check for overlap
-fn check_overlap(min_a: f32, max_a: f32, min_b: f32, max_b: f32) -> bool {
-    min_b <= max_a && min_a <= max_b
-}
-
-/// check for box overlap
-pub fn check_collision(box1: &BoxShape, box2: &BoxShape) -> bool {
-    // if !box1.is_active && !box2.is_active {
-    //     return false;
-    // }
-
-    // x
-    let min_x1 = box1.get_position().x;
-    let max_x1 = box1.get_position().x + box1.get_size().x;
-    let min_x2 = box2.get_position().x;
-    let max_x2 = box2.get_position().x + box2.get_size().x;
-
-    // y
-    let min_y1 = box1.get_position().y;
-    let max_y1 = box1.get_position().y + box1.get_size().y;
-    let min_y2 = box2.get_position().y;
-    let max_y2 = box2.get_position().y + box2.get_size().y;
-
-    // results
-    let check_a = check_overlap(min_x1, max_x1, min_x2, max_x2);
-    let check_b = check_overlap(min_y1, max_y1, min_y2, max_y2);
-
-    check_a && check_b
-}
-
 /// rng true or false
 fn random_bool() -> bool {
     let mut rng = thread_rng();
@@ -109,15 +73,18 @@ fn sat(points_1: &Vec<Vector2f>, points_2: &Vec<Vector2f>) -> bool {
             p2 = &points_1;
         }
 
-        for x in 0..p1.len() {
-            let y = (x + 1) % points_1.len();
+        let n1 = p1.len();
+        let n2 = p2.len();
+
+        for x in 0..n1 {
+            let y = (x + 1) % n1;
             // norm
             let normal = get_vector_normal(p1[x], p1[y]);
 
             // shape 1
             let mut min_value1 = INFINITY;
             let mut max_value1 = -INFINITY;
-            for idx in 0..p1.len() {
+            for idx in 0..n1 {
                 let dot = get_dot_product(p1[idx], normal);
                 // update min/max
                 min_value1 = min_value1.min(dot);
@@ -127,7 +94,7 @@ fn sat(points_1: &Vec<Vector2f>, points_2: &Vec<Vector2f>) -> bool {
             // shape 2
             let mut min_value2 = INFINITY;
             let mut max_value2 = -INFINITY;
-            for idx in 0..p2.len() {
+            for idx in 0..n2 {
                 let dot = get_dot_product(p2[idx], normal);
                 // update min/max
                 min_value2 = min_value2.min(dot);
@@ -141,6 +108,31 @@ fn sat(points_1: &Vec<Vector2f>, points_2: &Vec<Vector2f>) -> bool {
     }
 
     true
+}
+
+/// check for overlap
+fn check_overlap(min_a: f32, max_a: f32, min_b: f32, max_b: f32) -> bool {
+    min_b <= max_a && min_a <= max_b
+}
+
+pub fn aabb(box1: &BoxShape, box2: &BoxShape) -> bool {
+    // x
+    let min_x1 = box1.get_position().x;
+    let max_x1 = box1.get_position().x + box1.get_size().x;
+    let min_x2 = box2.get_position().x;
+    let max_x2 = box2.get_position().x + box2.get_size().x;
+
+    // y
+    let min_y1 = box1.get_position().y;
+    let max_y1 = box1.get_position().y + box1.get_size().y;
+    let min_y2 = box2.get_position().y;
+    let max_y2 = box2.get_position().y + box2.get_size().y;
+
+    // results
+    let check_a = check_overlap(min_x1, max_x1, min_x2, max_x2);
+    let check_b = check_overlap(min_y1, max_y1, min_y2, max_y2);
+
+    check_a && check_b
 }
 
 fn filter_bullets(bullets: &mut Vec<Bullet>) {
@@ -172,7 +164,6 @@ fn run(width: u32, height: u32) {
     let center_x = width as f32 * 0.5;
     let center_y = height as f32 * 0.5;
     let mut ship = Ship::new(center_x, center_y, 0.);
-    // let mut ship_box = BoxShape::new(ship.get_position().x, ship.get_position().y, 70.0, 70.0);
 
     // TODO: bullets
     let mut shoot_time = 0.0;
@@ -180,15 +171,35 @@ fn run(width: u32, height: u32) {
     let mut bullets: Vec<Bullet> = Vec::new();
 
     // TODO: asteroid
-    let mut asteroid = Asteroid::new(
+    let asteroid1 = Asteroid::new(
         50.,
         350.,
         d_to_r(random_number(1., 360.)),
-        7.,
-        5.,
+        8.,
+        2.,
         random_bool(),
         AsteroidSize::LARGE,
     );
+    let asteroid2 = Asteroid::new(
+        150.,
+        150.,
+        d_to_r(random_number(1., 360.)),
+        9.,
+        2.,
+        random_bool(),
+        AsteroidSize::LARGE,
+    );
+    let asteroid3 = Asteroid::new(
+        10.,
+        10.,
+        d_to_r(random_number(1., 360.)),
+        8.,
+        2.,
+        random_bool(),
+        AsteroidSize::LARGE,
+    );
+
+    let mut asteroids = vec![asteroid1, asteroid2, asteroid3];
 
     while window.is_open() {
         // INPUTS ---
@@ -199,10 +210,12 @@ fn run(width: u32, height: u32) {
                     Key::Escape => window.close(),
                     Key::P => is_paused = !is_paused,
                     Key::Tab => {
-                        // display box
+                        // display debug box
                         ship.toggle_debug();
-                        asteroid.toggle_debug();
-                        // asteroid_box.toggle_debug();
+
+                        for a in asteroids.iter_mut() {
+                            a.toggle_debug();
+                        }
                     }
                     Key::W => {
                         if let Some(x) = key_map.get_mut(&Key::W) {
@@ -261,8 +274,6 @@ fn run(width: u32, height: u32) {
             ship.inputs(&key_map);
             ship.update(delta);
 
-            asteroid.update(delta);
-
             shoot_time += delta;
             if ship.is_fireing() && shoot_time > max_shoot_time {
                 let new_b = Bullet::new(
@@ -272,12 +283,6 @@ fn run(width: u32, height: u32) {
                 );
 
                 bullets.push(new_b);
-
-                if !bullets.is_empty() {
-                    if let Some(l) = bullets.last_mut() {
-                        l.init();
-                    }
-                }
                 shoot_time = 0.;
             }
 
@@ -289,22 +294,50 @@ fn run(width: u32, height: u32) {
 
             filter_bullets(&mut bullets);
 
+            if !asteroids.is_empty() {
+                for a in asteroids.iter_mut() {
+                    a.update(delta);
+                }
+            }
+
             // collision
             // only call sat if box collision goes off
-            if check_collision(ship.get_box(), asteroid.get_box()) {
-                ship.toggle_debug_color(true);
-                asteroid.toggle_debug_color(true);
+            // ship asteroid
+            for a in asteroids.iter_mut() {
+                if aabb(ship.get_box(), a.get_box()) {
+                    a.toggle_debug_color(true);
 
-                if sat(ship.get_tp(), asteroid.get_tp()) {
-                    ship.toggle_color(true);
-                    asteroid.toggle_color(true);
+                    if sat(ship.get_tp(), a.get_tp()) {
+                        ship.toggle_color(true);
+                        a.toggle_color(true);
+                    } else {
+                        ship.toggle_color(false);
+                        a.toggle_color(false);
+                    }
                 } else {
-                    ship.toggle_color(false);
-                    asteroid.toggle_color(false);
+                    ship.toggle_debug_color(false);
+                    a.toggle_debug_color(false);
                 }
-            } else {
-                ship.toggle_debug_color(false);
-                asteroid.toggle_debug_color(false);
+            }
+            // asteroid bullet
+            for b in bullets.iter_mut() {
+                for a in asteroids.iter_mut() {
+                    if aabb(a.get_box(), b.get_box()) {
+                        a.toggle_debug_color(true);
+                        b.toggle_debug_color(true);
+
+                        if sat(a.get_tp(), b.get_tp()) {
+                            a.toggle_color(true);
+                            b.toggle_color(true);
+                        } else {
+                            a.toggle_color(false);
+                            b.toggle_color(false);
+                        }
+                    } else {
+                        a.toggle_debug_color(false);
+                        b.toggle_debug_color(false);
+                    }
+                }
             }
 
             // RENDER ---
@@ -313,8 +346,13 @@ fn run(width: u32, height: u32) {
             // ->
             //ship
             ship.draw(&mut window);
+
             // asteroid
-            asteroid.draw(&mut window);
+            if !asteroids.is_empty() {
+                for a in asteroids.iter_mut() {
+                    a.draw(&mut window);
+                }
+            }
             // bullets
             if !bullets.is_empty() {
                 for bullet in bullets.iter_mut() {
