@@ -8,17 +8,14 @@ mod boxshape;
 mod bullet;
 mod ship;
 
-use sfml::{graphics::*, system::*, window::*};
-//
-use std::collections::HashMap;
-use std::f32::INFINITY;
-//
-use rand::{thread_rng, Rng};
-//
 use crate::asteroid::*;
 use crate::boxshape::*;
 use crate::bullet::*;
 use crate::ship::*;
+use rand::{thread_rng, Rng};
+use sfml::{graphics::*, system::*, window::*};
+use std::collections::HashMap;
+use std::f32::{consts::PI, INFINITY};
 
 // ----------
 // CONSTS
@@ -31,6 +28,36 @@ const SCREEN_HEIGHT: u32 = 600;
 // FUNCS
 // ----------
 
+/// check for overlap
+fn check_overlap(min_a: f32, max_a: f32, min_b: f32, max_b: f32) -> bool {
+    min_b <= max_a && min_a <= max_b
+}
+
+/// check for box overlap
+pub fn check_collision(box1: &BoxShape, box2: &BoxShape) -> bool {
+    // if !box1.is_active && !box2.is_active {
+    //     return false;
+    // }
+
+    // x
+    let min_x1 = box1.get_position().x;
+    let max_x1 = box1.get_position().x + box1.get_size().x;
+    let min_x2 = box2.get_position().x;
+    let max_x2 = box2.get_position().x + box2.get_size().x;
+
+    // y
+    let min_y1 = box1.get_position().y;
+    let max_y1 = box1.get_position().y + box1.get_size().y;
+    let min_y2 = box2.get_position().y;
+    let max_y2 = box2.get_position().y + box2.get_size().y;
+
+    // results
+    let check_a = check_overlap(min_x1, max_x1, min_x2, max_x2);
+    let check_b = check_overlap(min_y1, max_y1, min_y2, max_y2);
+
+    check_a && check_b
+}
+
 /// rng true or false
 fn random_bool() -> bool {
     let mut rng = thread_rng();
@@ -39,10 +66,19 @@ fn random_bool() -> bool {
 }
 
 /// rng an angle between 0 and 360
-fn random_angle() -> f32 {
+fn random_number(min_v: f32, max_v: f32) -> f32 {
     let mut rng = thread_rng();
-    let result: f32 = rng.gen_range(0.0, 360.0);
+
+    let a = min_v.min(max_v);
+    let b = min_v.max(max_v);
+
+    let result: f32 = rng.gen_range(a, b);
     result
+}
+
+// degreese to radians
+fn d_to_r(deg: f32) -> f32 {
+    deg * PI / 180.0
 }
 
 /// get vector normal between two points
@@ -61,8 +97,6 @@ fn get_dot_product(v1: Vector2f, v2: Vector2f) -> f32 {
 
 // TODO: Separated Axis Theorem
 // link https://www.youtube.com/watch?v=7Ik2vowGcU0&t=414s
-// problem is all objects can not have concave points
-// fn sat(points_1: Vec<(f32, f32)>, points_2: Vec<(f32, f32)>) -> bool {
 fn sat(points_1: &Vec<Vector2f>, points_2: &Vec<Vector2f>) -> bool {
     // check shadow overlap
     let mut p1 = &points_1;
@@ -127,7 +161,6 @@ fn run(width: u32, height: u32) {
     let mut window = RenderWindow::new((width, height), "space", Style::CLOSE, &Default::default());
     window.set_mouse_cursor_visible(false);
     window.set_framerate_limit(30);
-    let mut is_running = true;
     let mut is_paused = false;
     let mut clock = Clock::start();
 
@@ -139,7 +172,7 @@ fn run(width: u32, height: u32) {
     let center_x = width as f32 * 0.5;
     let center_y = height as f32 * 0.5;
     let mut ship = Ship::new(center_x, center_y, 0.);
-    let mut ship_box = BoxShape::new(ship.get_position().x, ship.get_position().y, 70.0, 70.0);
+    // let mut ship_box = BoxShape::new(ship.get_position().x, ship.get_position().y, 70.0, 70.0);
 
     // TODO: bullets
     let mut shoot_time = 0.0;
@@ -147,27 +180,29 @@ fn run(width: u32, height: u32) {
     let mut bullets: Vec<Bullet> = Vec::new();
 
     // TODO: asteroid
-    let mut asteroid = Asteroid::new();
-    asteroid.init_large(500.0, 350.0, random_angle(), random_bool());
-    let mut asteroid_box = BoxShape::new(
-        asteroid.get_position().x,
-        asteroid.get_position().y,
-        150.0,
-        150.0,
+    let mut asteroid = Asteroid::new(
+        50.,
+        350.,
+        d_to_r(random_number(1., 360.)),
+        7.,
+        5.,
+        random_bool(),
+        AsteroidSize::LARGE,
     );
 
-    while window.is_open() && is_running {
+    while window.is_open() {
         // INPUTS ---
         while let Some(event) = window.poll_event() {
             match event {
-                Event::Closed => is_running = false,
+                Event::Closed => window.close(),
                 Event::KeyPressed { code, .. } => match code {
-                    Key::Escape => is_running = false,
+                    Key::Escape => window.close(),
                     Key::P => is_paused = !is_paused,
                     Key::Tab => {
                         // display box
-                        ship_box.toggle_debug();
-                        asteroid_box.toggle_debug();
+                        ship.toggle_debug();
+                        asteroid.toggle_debug();
+                        // asteroid_box.toggle_debug();
                     }
                     Key::W => {
                         if let Some(x) = key_map.get_mut(&Key::W) {
@@ -221,49 +256,13 @@ fn run(width: u32, height: u32) {
         if !is_paused {
             let delta = clock.restart().as_seconds();
 
-            // RENDER ---
-            window.clear(Color::BLACK);
-            // ->
-            //ship
-            ship.draw(&mut window);
-            ship_box.draw(&mut window);
-            asteroid_box.draw(&mut window);
-            // asteroid
-            asteroid.draw(&mut window);
-            // bullets
-            if !bullets.is_empty() {
-                for bullet in bullets.iter_mut() {
-                    if bullet.is_active() {
-                        bullet.draw(&mut window);
-                    }
-                }
-            }
-            // <-
-            window.display();
-
-            // INPUTS ---
-            ship.inputs(&key_map);
-
             // UPDATE ---
-            // collision
-            // only call sat if box collision goes off
-            if ship_box.check_collision(&asteroid_box) {
-                ship_box.toggle_color(true);
-                asteroid_box.toggle_color(true);
 
-                if sat(ship.get_tp(), asteroid.get_tp()) {
-                    ship.toggle_color(true);
-                    asteroid.toggle_color(true);
-                } else {
-                    ship.toggle_color(false);
-                    asteroid.toggle_color(false);
-                }
-            } else {
-                ship_box.toggle_color(false);
-                asteroid_box.toggle_color(false);
-            }
+            ship.inputs(&key_map);
+            ship.update(delta);
 
-            // shoot
+            asteroid.update(delta);
+
             shoot_time += delta;
             if ship.is_fireing() && shoot_time > max_shoot_time {
                 let new_b = Bullet::new(
@@ -281,25 +280,49 @@ fn run(width: u32, height: u32) {
                 }
                 shoot_time = 0.;
             }
+
+            if !bullets.is_empty() {
+                for bullet in bullets.iter_mut() {
+                    bullet.update(delta);
+                }
+            }
+
             filter_bullets(&mut bullets);
 
-            // ship
-            ship.update(delta);
-            ship_box.set_position(ship.get_position());
-            ship_box.update(delta);
-            // asteroid
-            asteroid.update(delta);
-            asteroid_box.set_position(asteroid.get_position());
-            asteroid_box.update(delta);
+            // collision
+            // only call sat if box collision goes off
+            if check_collision(ship.get_box(), asteroid.get_box()) {
+                ship.toggle_debug_color(true);
+                asteroid.toggle_debug_color(true);
 
+                if sat(ship.get_tp(), asteroid.get_tp()) {
+                    ship.toggle_color(true);
+                    asteroid.toggle_color(true);
+                } else {
+                    ship.toggle_color(false);
+                    asteroid.toggle_color(false);
+                }
+            } else {
+                ship.toggle_debug_color(false);
+                asteroid.toggle_debug_color(false);
+            }
+
+            // RENDER ---
+
+            window.clear(Color::BLACK);
+            // ->
+            //ship
+            ship.draw(&mut window);
+            // asteroid
+            asteroid.draw(&mut window);
             // bullets
             if !bullets.is_empty() {
                 for bullet in bullets.iter_mut() {
-                    if bullet.is_active() {
-                        bullet.update(delta);
-                    }
+                    bullet.draw(&mut window);
                 }
             }
+            // <-
+            window.display();
         } else {
             // so when un pausing objects
             // dont just jump across the screen.

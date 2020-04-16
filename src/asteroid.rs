@@ -4,147 +4,120 @@ use sfml::{graphics::*, system::*};
 use std::f32::consts::PI;
 //
 use crate::baseobject::*;
+use crate::boxshape::*;
 
 /// asteroid types
+#[derive(Copy, Clone)]
+#[allow(dead_code)]
 pub enum AsteroidSize {
     SMALL,
     MEDIUM,
     LARGE,
+    NONE,
 }
 
 /// asteroid
+#[allow(dead_code)]
 pub struct Asteroid {
     base: BaseObject,
-    size: AsteroidSize,
+    asteroid_size: AsteroidSize,
     rotate_speed: f32,
-    screen_padding: f32,
     asteroid_points: [Vertex; 9],
     transform_asteroid_points: [Vertex; 9],
     transform_points: Vec<Vector2f>,
     flip_color: bool,
+    // for debug
+    is_debug: bool,
+    debug_box : BoxShape,
 }
 
 #[allow(dead_code)]
 impl Asteroid {
     /// new asteroid
-    pub fn new() -> Self {
+    pub fn new(
+        x: f32,
+        y: f32,
+        ang: f32,
+        acc: f32,
+        rotate_speed: f32,
+        rotate_right: bool,
+        size_type: AsteroidSize,
+    ) -> Self {
+        let points = match size_type {
+            AsteroidSize::SMALL => [
+                Vertex::with_pos((0.0, -10.20)),
+                Vertex::with_pos((5.50, -4.50)),
+                Vertex::with_pos((8.0, 0.0)),
+                Vertex::with_pos((5.0, 3.50)),
+                Vertex::with_pos((0.0, 9.0)),
+                Vertex::with_pos((-3.80, 4.0)),
+                Vertex::with_pos((-4.45, 0.0)),
+                Vertex::with_pos((-2.80, -3.0)),
+                Vertex::with_pos((0.0, -10.27)),
+            ],
+            AsteroidSize::MEDIUM => [
+                Vertex::with_pos((0.0, -20.0)),
+                Vertex::with_pos((4.0, -6.0)),
+                Vertex::with_pos((4.5, 0.0)),
+                Vertex::with_pos((4.3, 3.9)),
+                Vertex::with_pos((0.0, 10.0)),
+                Vertex::with_pos((-8.2, 8.67)),
+                Vertex::with_pos((-10.0, 0.0)),
+                Vertex::with_pos((-6.4, -14.3)),
+                Vertex::with_pos((0.0, -20.0)),
+            ],
+            AsteroidSize::LARGE => [
+                Vertex::with_pos((0.0, -50.0)),
+                Vertex::with_pos((40.0, -40.0)),
+                Vertex::with_pos((60.0, 0.0)),
+                Vertex::with_pos((30.0, 35.0)),
+                Vertex::with_pos((0.0, 50.0)),
+                Vertex::with_pos((-40.5, 40.0)),
+                Vertex::with_pos((-55.0, 0.0)),
+                Vertex::with_pos((-35.0, -30.0)),
+                Vertex::with_pos((0.0, -50.0)),
+            ],
+            AsteroidSize::NONE => [Vertex::default(); 9],
+        };
+
+        let dx = ang.cos() * acc;
+        let dy = ang.sin() * acc;
+
+        let speed = match rotate_right {
+            true => rotate_speed,
+            false => -rotate_speed,
+        };
+
+        let debug_size = match size_type{
+            AsteroidSize::SMALL => 50.,
+            AsteroidSize::MEDIUM => 90.,
+            AsteroidSize::LARGE =>130.,
+            AsteroidSize::NONE => 10.,
+        };
+
+        let d_box = BoxShape::new(x, y, debug_size, debug_size);
+
         Self {
             base: BaseObject {
-                position: Vector2f::default(),
-                velocity: Vector2f::default(),
-                acceleration: 0.0,
-                angle: 0.0,
-                is_active: false,
+                position: Vector2f::new(x, y),
+                velocity: Vector2f::new(dx, dy),
+                acceleration: acc,
+                angle: ang,
+                is_active: true,
             },
-            size: AsteroidSize::SMALL,
-            rotate_speed: 0.0,
-            screen_padding: 0.0,
-            asteroid_points: [Vertex::default(); 9],
+            asteroid_size: size_type,
+            rotate_speed: speed,
+            asteroid_points: points,
             transform_asteroid_points: [Vertex::default(); 9],
-
             transform_points: vec![Vector2f::default(); 9],
-
-            flip_color:false,
+            is_debug: true,
+            flip_color: false,
+            debug_box: d_box,
         }
     }
 
-    /// init a new asteroid to a small type
-    pub fn init_small(&mut self, x: f32, y: f32, ang: f32, rotate_right: bool) {
-        self.asteroid_points = [
-            Vertex::with_pos((0.0, -10.20)),
-            Vertex::with_pos((5.50, -4.50)),
-            Vertex::with_pos((8.0, 0.0)),
-            Vertex::with_pos((5.0, 3.50)),
-            Vertex::with_pos((0.0, 9.0)),
-            Vertex::with_pos((-3.80, 4.0)),
-            Vertex::with_pos((-4.45, 0.0)),
-            Vertex::with_pos((-2.80, -3.0)),
-            Vertex::with_pos((0.0, -10.27)),
-        ];
-        self.size = AsteroidSize::SMALL;
-
-        self.base.position.x = x;
-        self.base.position.y = y;
-
-        self.base.angle = ang;
-        self.base.acceleration = 10.0;
-
-        self.rotate_speed = match rotate_right {
-            true => 8.0,
-            false => -8.0,
-        };
-
-        self.screen_padding = 20.0;
-
-        self.base.velocity.x = self.base.angle.cos() * self.base.acceleration;
-        self.base.velocity.y = self.base.angle.sin() * self.base.acceleration;
-
-        self.base.is_active = true;
-    }
-
-    /// init a new asteroid to a medium type
-    pub fn init_medium(&mut self, x: f32, y: f32, ang: f32, rotate_right: bool) {
-        self.asteroid_points = [
-            Vertex::with_pos((0.0, -20.0)),
-            Vertex::with_pos((4.0, -6.0)),
-            Vertex::with_pos((4.5, 0.0)),
-            Vertex::with_pos((4.3, 3.9)),
-            Vertex::with_pos((0.0, 10.0)),
-            Vertex::with_pos((-8.2, 8.67)),
-            Vertex::with_pos((-10.0, 0.0)),
-            Vertex::with_pos((-6.4, -14.3)),
-            Vertex::with_pos((0.0, -20.0)),
-        ];
-        self.size = AsteroidSize::MEDIUM;
-
-        self.base.position.x = x;
-        self.base.position.y = y;
-
-        self.base.angle = ang;
-        self.base.acceleration = 8.0;
-        self.rotate_speed = match rotate_right {
-            true => 4.0,
-            false => -4.0,
-        };
-
-        self.screen_padding = 30.0;
-
-        self.base.velocity.x = self.base.angle.cos() * self.base.acceleration;
-        self.base.velocity.y = self.base.angle.sin() * self.base.acceleration;
-
-        self.base.is_active = true;
-    }
-
-    /// init a new asteroid to a large type
-    pub fn init_large(&mut self, x: f32, y: f32, ang: f32, rotate_right: bool) {
-        self.asteroid_points = [
-            Vertex::with_pos((0.0, -50.0)),
-            Vertex::with_pos((40.0, -40.0)),
-            Vertex::with_pos((60.0, 0.0)),
-            Vertex::with_pos((30.0, 35.0)),
-            Vertex::with_pos((0.0, 50.0)),
-            Vertex::with_pos((-40.5, 40.0)),
-            Vertex::with_pos((-55.0, 0.0)),
-            Vertex::with_pos((-35.0, -30.0)),
-            Vertex::with_pos((0.0, -50.0)),
-        ];
-        self.size = AsteroidSize::LARGE;
-
-        self.base.position.x = x;
-        self.base.position.y = y;
-
-        self.base.angle = ang;
-        self.base.acceleration = 4.0;
-        self.rotate_speed = match rotate_right {
-            true => 1.0,
-            false => -1.0,
-        };
-        self.screen_padding = 50.0;
-
-        self.base.velocity.x = self.base.angle.cos() * self.base.acceleration;
-        self.base.velocity.y = self.base.angle.sin() * self.base.acceleration;
-
-        self.base.is_active = true;
+    pub fn get_box(&self) -> &BoxShape{
+        &self.debug_box
     }
 
     /// return current screen position
@@ -152,12 +125,21 @@ impl Asteroid {
         self.base.position
     }
 
-    pub fn toggle_color(&mut self, value: bool){
+    /// toggle color
+    pub fn toggle_color(&mut self, value: bool) {
         self.flip_color = value;
     }
 
+    pub fn toggle_debug(&mut self) {
+        self.debug_box.toggle_active();
+    }
+
+    pub fn toggle_debug_color(&mut self, value: bool) {
+        self.debug_box.toggle_color(value);
+    }
+
     /// get vec of the current transform points for this asteroid
-    pub fn get_tp(&self)->&Vec<Vector2f>{
+    pub fn get_tp(&self) -> &Vec<Vector2f> {
         &self.transform_points
     }
 
@@ -176,9 +158,9 @@ impl Asteroid {
 
             self.transform_points[idx] = self.transform_asteroid_points[idx].position;
 
-            if self.flip_color{
+            if self.flip_color {
                 self.transform_asteroid_points[idx].color = Color::RED;
-            }else{
+            } else {
                 self.transform_asteroid_points[idx].color = Color::WHITE;
             }
         }
@@ -187,11 +169,33 @@ impl Asteroid {
     /// draw asteroids transform points to screen in LineStrip format
     pub fn draw(&mut self, window: &mut RenderWindow) {
         if self.base.is_active {
+            if self.is_debug{
+                self.debug_box.draw(window);
+            }
+
             window.draw_primitives(
                 &self.transform_asteroid_points,
                 PrimitiveType::LineStrip,
                 RenderStates::default(),
             );
+        }
+    }
+
+    fn screen_wrap(&mut self, width: f32, height: f32, padding: f32) {
+        // screen wrap
+        let screen_edge = 0.;
+
+        if self.base.position.x > width + padding {
+            self.base.position.x = screen_edge - padding;
+        }
+        if self.base.position.x < screen_edge - padding {
+            self.base.position.x = width + padding;
+        }
+        if self.base.position.y > height + padding {
+            self.base.position.y = screen_edge - padding;
+        }
+        if self.base.position.y < screen_edge - padding {
+            self.base.position.y = height + padding;
         }
     }
 
@@ -206,30 +210,15 @@ impl Asteroid {
                 self.base.angle -= PI * 2.0;
             }
 
-            let screen_width = 800.0; 
-            let screen_height = 600.0;
-            let screen_edge = 0.0;
-
-            //wrap
-            if self.base.position.x > screen_width + self.screen_padding {
-                self.base.position.x = screen_edge - self.screen_padding;
-            }
-
-            if self.base.position.x < screen_edge - self.screen_padding {
-                self.base.position.x = screen_width + self.screen_padding;
-            }
-
-            if self.base.position.y > screen_height + self.screen_padding {
-                self.base.position.y = screen_edge - self.screen_padding;
-            }
-
-            if self.base.position.y < screen_edge - self.screen_padding {
-                self.base.position.y = screen_height + self.screen_padding;
-            }
-
             self.base.position += self.base.velocity * self.base.acceleration * delta;
-            
+
+            self.screen_wrap(800., 600., 50.);
             self.update_points();
+
+            if self.is_debug{
+                self.debug_box.set_position(self.base.position);
+                self.debug_box.update(delta);
+            }
         }
     }
 }

@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::f32::consts::PI;
 //
 use crate::baseobject::*;
+use crate::boxshape::*;
 
 #[allow(dead_code)]
 pub struct Ship {
@@ -23,6 +24,9 @@ pub struct Ship {
     transform_points: Vec<Vector2f>,
     thruster_points: [Vertex; 4],
     transform_thruster_points: [Vertex; 4],
+    // for debug
+    is_debug: bool,
+    debug_box : BoxShape,
 }
 
 impl Ship {
@@ -47,6 +51,8 @@ impl Ship {
 
         let tp = vec![Vector2f::default(); 4];
 
+        let d_box = BoxShape::new(x, y, 70., 70.);
+
         Self {
             base: BaseObject {
                 position: Vector2f::new(x, y),
@@ -68,9 +74,15 @@ impl Ship {
             transform_points: tp,
             thruster_points: thruster_v,
             transform_thruster_points: draw_tv,
+            is_debug: true,
+            debug_box: d_box,
         }
     }
 
+    pub fn get_box(&self) -> &BoxShape{
+        &self.debug_box
+    }
+    
     pub fn get_position(&self) -> Vector2f {
         self.base.position
     }
@@ -81,6 +93,14 @@ impl Ship {
 
     pub fn toggle_color(&mut self, value: bool) {
         self.flip_color = value;
+    }
+
+    pub fn toggle_debug(&mut self) {
+        self.debug_box.toggle_active();
+    }
+
+    pub fn toggle_debug_color(&mut self, value: bool) {
+        self.debug_box.toggle_color(value);
     }
 
     /// get vec of the current transform points for this ship
@@ -112,18 +132,44 @@ impl Ship {
 
     pub fn draw(&mut self, window: &mut RenderWindow) {
         // ship
-        window.draw_primitives(
-            &self.transform_ship_points,
-            PrimitiveType::LineStrip,
-            RenderStates::default(),
-        );
-        // thruster
-        if self.is_thrusting {
+        if self. base.is_active{
+            if self.is_debug{
+                self.debug_box.draw(window);
+            }
+
+            // ship
             window.draw_primitives(
-                &self.transform_thruster_points,
+                &self.transform_ship_points,
                 PrimitiveType::LineStrip,
                 RenderStates::default(),
             );
+
+            // thruster
+            if self.is_thrusting {
+                window.draw_primitives(
+                    &self.transform_thruster_points,
+                    PrimitiveType::LineStrip,
+                    RenderStates::default(),
+                );
+            }
+        }
+    }
+
+    fn screen_wrap(&mut self, width: f32, height: f32, padding: f32) {
+        // screen wrap
+        let screen_edge = 0.;
+
+        if self.base.position.x > width  + padding {
+            self.base.position.x = screen_edge - padding;
+        }
+        if self.base.position.x < screen_edge - padding {
+            self.base.position.x = width  + padding;
+        }
+        if self.base.position.y > height + padding {
+            self.base.position.y = screen_edge - padding;
+        }
+        if self.base.position.y < screen_edge - padding {
+            self.base.position.y = height + padding;
         }
     }
 
@@ -132,10 +178,9 @@ impl Ship {
         // [ cos + -sin ]
         // [ sin +  cos ]
         // ship
-        // let n = self.ship_points.len();
-        for (idx, vert) in self.ship_points.iter_mut().enumerate() {
-            let x = vert.position.x;
-            let y = vert.position.y;
+        for (idx, p) in self.ship_points.iter_mut().enumerate() {
+            let x = p.position.x;
+            let y = p.position.y;
 
             self.transform_ship_points[idx].position.x =
                 (x * self.base.angle.cos()) - (y * self.base.angle.sin());
@@ -175,62 +220,51 @@ impl Ship {
         }
     }
 
-    fn screen_wrap(&mut self, width: f32, height: f32, padding: f32) {
-        // screen wrap
-        let screen_edge = 0.;
-
-        if self.base.position.x > width as f32 + padding {
-            self.base.position.x = screen_edge - padding;
-        }
-        if self.base.position.x < screen_edge - padding {
-            self.base.position.x = width as f32 + padding;
-        }
-        if self.base.position.y > height as f32 + padding {
-            self.base.position.y = screen_edge - padding;
-        }
-        if self.base.position.y < screen_edge - padding {
-            self.base.position.y = height as f32 + padding;
-        }
-    }
-
     pub fn update(&mut self, delta: f32) {
         // angle
-        if self.base.angle < 0. {
-            self.base.angle += PI * 2.;
-        }
-        if self.base.angle > PI * 2. {
-            self.base.angle -= PI * 2.;
-        }
+        if self.base.is_active{
+            if self.base.angle < 0. {
+                self.base.angle += PI * 2.;
+            }
+            if self.base.angle > PI * 2. {
+                self.base.angle -= PI * 2.;
+            }
 
-        // direction
-        if self.is_turning_left {
-            self.base.angle += self.rotation_speed * delta;
+            // direction
+            if self.is_turning_left {
+                self.base.angle += self.rotation_speed * delta;
+            }
+
+            if self.is_turning_right {
+                self.base.angle -= self.rotation_speed * delta;
+            }
+
+            if self.is_thrusting {
+                self.base.velocity.x += self.base.angle.cos() * self.base.acceleration * delta;
+                self.base.velocity.y += self.base.angle.sin() * self.base.acceleration * delta;
+            }
+
+            // slow down/top speed
+            let length = (self.base.velocity.x * self.base.velocity.x
+                + self.base.velocity.y * self.base.velocity.y)
+                .sqrt();
+
+            if length > 0. {
+                self.base.velocity -= self.base.velocity / length * self.deceleration * delta;
+            }
+
+            if length > self.top_speed {
+                self.base.velocity = (self.base.velocity / length) * self.top_speed
+            }
+
+            self.base.position += self.base.velocity * delta;
+            self.screen_wrap(800., 600., 20.);
+            self.update_verts();
+
+            if self.is_debug{
+                self.debug_box.set_position(self.base.position);
+                self.debug_box.update(delta);
+            }
         }
-
-        if self.is_turning_right {
-            self.base.angle -= self.rotation_speed * delta;
-        }
-
-        if self.is_thrusting {
-            self.base.velocity.x += self.base.angle.cos() * self.base.acceleration * delta;
-            self.base.velocity.y += self.base.angle.sin() * self.base.acceleration * delta;
-        }
-
-        // slow down/top speed
-        let length = (self.base.velocity.x * self.base.velocity.x
-            + self.base.velocity.y * self.base.velocity.y)
-            .sqrt();
-
-        if length > 0. {
-            self.base.velocity -= self.base.velocity / length * self.deceleration * delta;
-        }
-
-        if length > self.top_speed {
-            self.base.velocity = (self.base.velocity / length) * self.top_speed
-        }
-
-        self.base.position += self.base.velocity * delta;
-        self.screen_wrap(800., 600., 20.);
-        self.update_verts();
     }
 }
