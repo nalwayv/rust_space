@@ -4,7 +4,6 @@ use sfml::{graphics::*, system::*};
 use std::f32::consts::PI;
 //
 use crate::baseobject::*;
-use crate::boxshape::*;
 use crate::globals::*;
 
 /// asteroid types
@@ -27,9 +26,7 @@ pub struct Asteroid {
     transform_asteroid_points: [Vertex; 9],
     transform_points: Vec<Vector2f>,
     flip_color: bool,
-    // for debug
-    is_debug: bool,
-    debug_box : BoxShape,
+
 }
 
 // #[allow(dead_code)]
@@ -89,15 +86,6 @@ impl Asteroid {
             false => -rotate_speed,
         };
 
-        let debug_size = match size_type{
-            AsteroidSize::SMALL => 50.,
-            AsteroidSize::MEDIUM => 90.,
-            AsteroidSize::LARGE =>130.,
-            AsteroidSize::NONE => 10.,
-        };
-
-        let d_box = BoxShape::new(x, y, debug_size, debug_size);
-
         Self {
             base: BaseObject {
                 position: Vector2f::new(x, y),
@@ -111,36 +99,19 @@ impl Asteroid {
             asteroid_points: points,
             transform_asteroid_points: [Vertex::default(); 9],
             transform_points: vec![Vector2f::default(); 9],
-            is_debug: true,
             flip_color: false,
-            debug_box: d_box,
         }
     }
 
-    pub fn get_box(&self) -> &BoxShape{
-        &self.debug_box
+    #[allow(dead_code)]
+    /// return current screen position
+    pub fn get_position(&self) -> Vector2f {
+        self.base.position
     }
-
-    // pub fn set_is_active_to(&mut self, value:bool ){
-    //     self.base.is_active = value;
-    // }
-
-    // /// return current screen position
-    // pub fn get_position(&self) -> Vector2f {
-    //     self.base.position
-    // }
 
     /// toggle color
     pub fn toggle_color(&mut self, value: bool) {
         self.flip_color = value;
-    }
-
-    pub fn toggle_debug(&mut self) {
-        self.is_debug = !self.is_debug;
-    }
-
-    pub fn toggle_debug_color(&mut self, value: bool) {
-        self.debug_box.toggle_color(value);
     }
 
     /// get vec of the current transform points for this asteroid
@@ -174,9 +145,6 @@ impl Asteroid {
     /// draw asteroids transform points to screen in LineStrip format
     pub fn draw(&mut self, window: &mut RenderWindow) {
         if self.base.is_active {
-            if self.is_debug{
-                self.debug_box.draw(window);
-            }
 
             window.draw_primitives(
                 &self.transform_asteroid_points,
@@ -219,11 +187,6 @@ impl Asteroid {
 
             self.screen_wrap(SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32, 50.);
             self.update_points();
-
-            // if self.is_debug{
-            self.debug_box.set_position(self.base.position);
-            self.debug_box.update(delta);
-            // }
         }
     }
 }

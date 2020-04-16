@@ -2,7 +2,6 @@
 use sfml::{graphics::*, system::*};
 //
 use crate::baseobject::*;
-use crate::boxshape::*;
 
 /// bullet
 pub struct Bullet {
@@ -12,10 +11,7 @@ pub struct Bullet {
     bullet_points: [Vertex; 5],
     transform_bullet_points: [Vertex; 5],
     transform_points: Vec<Vector2f>,
-    // for debug
     flip_color:bool,
-    is_debug: bool,
-    debug_box: BoxShape,
 }
 
 impl Bullet {
@@ -29,7 +25,6 @@ impl Bullet {
         ];
         let draw_bv = [Vertex::default(); 5];
 
-        let d_box = BoxShape::new(x, y, 20., 20.);
         let acc = 400.;
 
         let dx = ang.cos() * acc;
@@ -51,26 +46,12 @@ impl Bullet {
             transform_bullet_points: draw_bv,
             transform_points:tp,
             flip_color: false,
-            is_debug: true,
-            debug_box: d_box,
         }
     }
 
     /// get vec of the current transform points for this ship
     pub fn get_tp(&self) -> &Vec<Vector2f> {
         &self.transform_points
-    }
-
-    pub fn get_box(&self) -> &BoxShape {
-        &self.debug_box
-    }
-
-    // pub fn toggle_debug(&mut self){
-    //     self.is_debug = !self.is_debug;
-    // }
-
-    pub fn toggle_debug_color(&mut self, value: bool) {
-        self.debug_box.toggle_color(value);
     }
 
     pub fn toggle_color(&mut self, value: bool) {
@@ -83,11 +64,6 @@ impl Bullet {
 
     pub fn draw(&mut self, window: &mut RenderWindow) {
         if self.base.is_active {
-
-            if self.is_debug {
-                self.debug_box.draw(window);
-            }
-
             window.draw_primitives(
                 &self.transform_bullet_points,
                 PrimitiveType::LineStrip,
@@ -129,12 +105,6 @@ impl Bullet {
             }
             
             self.update_points();
-            
-            // debug
-            if self.is_debug {
-                self.debug_box.set_position(self.base.position);
-                self.debug_box.update(delta);
-            }
         }
     }
 }

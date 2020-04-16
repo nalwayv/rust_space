@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::f32::consts::PI;
 //
 use crate::baseobject::*;
-use crate::boxshape::*;
 use crate::globals::*;
 
 #[allow(dead_code)]
@@ -25,9 +24,6 @@ pub struct Ship {
     transform_points: Vec<Vector2f>,
     thruster_points: [Vertex; 4],
     transform_thruster_points: [Vertex; 4],
-    // for debug
-    is_debug: bool,
-    debug_box: BoxShape,
 }
 
 impl Ship {
@@ -52,7 +48,6 @@ impl Ship {
 
         let tp = vec![Vector2f::default(); 4];
 
-        let d_box = BoxShape::new(x, y, 70., 70.);
 
         Self {
             base: BaseObject {
@@ -75,14 +70,9 @@ impl Ship {
             transform_points: tp,
             thruster_points: thruster_v,
             transform_thruster_points: draw_tv,
-            is_debug: true,
-            debug_box: d_box,
         }
     }
 
-    pub fn get_box(&self) -> &BoxShape {
-        &self.debug_box
-    }
     pub fn get_position(&self) -> Vector2f {
         self.base.position
     }
@@ -98,14 +88,6 @@ impl Ship {
 
     pub fn toggle_color(&mut self, value: bool) {
         self.flip_color = value;
-    }
-
-    pub fn toggle_debug(&mut self){
-        self.is_debug = !self.is_debug;
-    }
-
-    pub fn toggle_debug_color(&mut self, value: bool) {
-        self.debug_box.toggle_color(value);
     }
 
     pub fn is_fireing(&self) -> bool {
@@ -133,10 +115,6 @@ impl Ship {
     pub fn draw(&mut self, window: &mut RenderWindow) {
         // ship
         if self.base.is_active {
-            if self.is_debug {
-                self.debug_box.draw(window);
-            }
-
             // ship
             window.draw_primitives(
                 &self.transform_ship_points,
@@ -260,12 +238,6 @@ impl Ship {
             self.base.position += self.base.velocity * delta;
             self.screen_wrap(SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32, 20.);
             self.update_verts();
-
-            // debug
-            // if self.is_debug {
-            self.debug_box.set_position(self.base.position);
-            self.debug_box.update(delta);
-            // }
         }
     }
 }
