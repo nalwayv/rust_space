@@ -2,6 +2,7 @@
 use sfml::{graphics::*, system::*};
 //
 use crate::baseobject::*;
+use crate::boxarea::*;
 
 /// bullet
 pub struct Bullet {
@@ -12,6 +13,7 @@ pub struct Bullet {
     transform_bullet_points: [Vertex; 5],
     transform_points: Vec<Vector2f>,
     flip_color:bool,
+    box_area: BoxArea,
 }
 
 impl Bullet {
@@ -32,6 +34,9 @@ impl Bullet {
 
         let tp = vec![Vector2f::default(); 5];
 
+        let ba = BoxArea::new(x, y, 10., 10.);
+
+
         Self {
             base: BaseObject {
                 position: Vector2f::new(x, y),
@@ -46,12 +51,22 @@ impl Bullet {
             transform_bullet_points: draw_bv,
             transform_points:tp,
             flip_color: false,
+            box_area: ba,
         }
     }
 
     /// get vec of the current transform points for this ship
     pub fn get_tp(&self) -> &Vec<Vector2f> {
         &self.transform_points
+    }
+    
+    pub fn get_box_area(&self)->&BoxArea{
+        &self.box_area
+    }
+
+    /// return current screen position
+    pub fn get_position(&self) -> Vector2f {
+        self.base.position
     }
 
     pub fn toggle_color(&mut self, value: bool) {
@@ -64,6 +79,8 @@ impl Bullet {
 
     pub fn draw(&mut self, window: &mut RenderWindow) {
         if self.base.is_active {
+            self.box_area.draw(window);
+
             window.draw_primitives(
                 &self.transform_bullet_points,
                 PrimitiveType::LineStrip,
@@ -103,6 +120,9 @@ impl Bullet {
             if self.life_timer > self.max_life_time {
                 self.base.is_active = false;
             }
+
+            self.box_area.set_position(self.get_position());
+            self.box_area.update();
             
             self.update_points();
         }

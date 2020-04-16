@@ -4,14 +4,17 @@
 // other files to include
 mod asteroid;
 mod baseobject;
+mod boxarea;
 mod bullet;
 mod globals;
 mod ship;
 
 use crate::asteroid::*;
+use crate::boxarea::*;
 use crate::bullet::*;
 use crate::globals::*;
 use crate::ship::*;
+
 use rand::{thread_rng, Rng};
 use sfml::{graphics::*, system::*, window::*};
 use std::collections::HashMap;
@@ -119,6 +122,28 @@ fn sat(points_1: &Vec<Vector2f>, points_2: &Vec<Vector2f>) -> bool {
     true
 }
 
+fn check_overlap(min_a: f32, max_a: f32, min_b: f32, max_b: f32) -> bool {
+    min_b <= max_a && min_a <= max_b
+}
+pub fn aabb(box1: &BoxArea, box2: &BoxArea) -> bool {
+    // x
+    let min_x1 = box1.get_position().x;
+    let max_x1 = box1.get_position().x + box1.get_size().x;
+    let min_x2 = box2.get_position().x;
+    let max_x2 = box2.get_position().x + box2.get_size().x;
+
+    // y
+    let min_y1 = box1.get_position().y;
+    let max_y1 = box1.get_position().y + box1.get_size().y;
+    let min_y2 = box2.get_position().y;
+    let max_y2 = box2.get_position().y + box2.get_size().y;
+
+    // results
+    let check_a = check_overlap(min_x1, max_x1, min_x2, max_x2);
+    let check_b = check_overlap(min_y1, max_y1, min_y2, max_y2);
+
+    check_a && check_b
+}
 
 fn filter_bullets(bullets: &mut Vec<Bullet>) {
     if !bullets.is_empty() {
@@ -154,7 +179,6 @@ fn run(width: u32, height: u32) {
     let mut shoot_time = 0.0;
     let max_shoot_time = 0.5;
     let mut bullets: Vec<Bullet> = Vec::new();
-
 
     // TODO: asteroid
     let asteroid1 = Asteroid::new(
@@ -250,6 +274,35 @@ fn run(width: u32, height: u32) {
 
             // UPDATE ---
 
+            // collision
+            // ship asteroid
+            for a in asteroids.iter_mut() {
+                if aabb(ship.get_box_area(), a.get_box_area()) {
+                    if sat(ship.get_tp(), a.get_tp()) {
+                        ship.toggle_color(true);
+                        a.toggle_color(true);
+                    }
+                } else {
+                    ship.toggle_color(false);
+                    a.toggle_color(false);
+                }
+            }
+
+            // asteroid bullet
+            for b in bullets.iter_mut() {
+                for a in asteroids.iter_mut() {
+                    if aabb(a.get_box_area(), b.get_box_area()) {
+                        if sat(a.get_tp(), b.get_tp()) {
+                            a.toggle_color(true);
+                            b.toggle_color(true);
+                        }
+                    } else {
+                        a.toggle_color(false);
+                        b.toggle_color(false);
+                    }
+                }
+            }
+
             ship.inputs(&key_map);
             ship.update(delta);
 
@@ -276,34 +329,6 @@ fn run(width: u32, height: u32) {
             if !asteroids.is_empty() {
                 for a in asteroids.iter_mut() {
                     a.update(delta);
-                }
-            }
-
-
-            // collision
-            // only call sat if box collision goes off
-            // ship asteroid
-            for a in asteroids.iter_mut() {
-
-                if sat(ship.get_tp(), a.get_tp()) {
-                    ship.toggle_color(true);
-                    a.toggle_color(true);
-                } else {
-                    ship.toggle_color(false);
-                    a.toggle_color(false);
-                }
-
-            }
-            // // asteroid bullet
-            for b in bullets.iter_mut() {
-                for a in asteroids.iter_mut() {
-                    if sat(a.get_tp(), b.get_tp()) {
-                        a.toggle_color(true);
-                        b.toggle_color(true);
-                    } else {
-                        a.toggle_color(false);
-                        b.toggle_color(false);
-                    }
                 }
             }
 

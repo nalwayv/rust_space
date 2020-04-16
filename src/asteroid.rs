@@ -5,6 +5,7 @@ use std::f32::consts::PI;
 //
 use crate::baseobject::*;
 use crate::globals::*;
+use crate::boxarea::*;
 
 /// asteroid types
 #[derive(Copy, Clone)]
@@ -26,7 +27,7 @@ pub struct Asteroid {
     transform_asteroid_points: [Vertex; 9],
     transform_points: Vec<Vector2f>,
     flip_color: bool,
-
+    box_area: BoxArea,
 }
 
 // #[allow(dead_code)]
@@ -86,6 +87,8 @@ impl Asteroid {
             false => -rotate_speed,
         };
 
+        let ba = BoxArea::new(x, y, 110., 110.);
+
         Self {
             base: BaseObject {
                 position: Vector2f::new(x, y),
@@ -100,10 +103,14 @@ impl Asteroid {
             transform_asteroid_points: [Vertex::default(); 9],
             transform_points: vec![Vector2f::default(); 9],
             flip_color: false,
+            box_area: ba,
         }
     }
 
-    #[allow(dead_code)]
+    pub fn get_box_area(&self)->&BoxArea{
+        &self.box_area
+    }
+
     /// return current screen position
     pub fn get_position(&self) -> Vector2f {
         self.base.position
@@ -146,6 +153,8 @@ impl Asteroid {
     pub fn draw(&mut self, window: &mut RenderWindow) {
         if self.base.is_active {
 
+            self.box_area.draw(window);
+
             window.draw_primitives(
                 &self.transform_asteroid_points,
                 PrimitiveType::LineStrip,
@@ -184,7 +193,10 @@ impl Asteroid {
             }
 
             self.base.position += self.base.velocity * self.base.acceleration * delta;
-
+            
+            self.box_area.set_position(self.get_position());
+            self.box_area.update();
+            
             self.screen_wrap(SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32, 50.);
             self.update_points();
         }

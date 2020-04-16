@@ -6,6 +6,7 @@ use std::f32::consts::PI;
 //
 use crate::baseobject::*;
 use crate::globals::*;
+use crate::boxarea::*;
 
 #[allow(dead_code)]
 pub struct Ship {
@@ -24,6 +25,7 @@ pub struct Ship {
     transform_points: Vec<Vector2f>,
     thruster_points: [Vertex; 4],
     transform_thruster_points: [Vertex; 4],
+    box_area: BoxArea,
 }
 
 impl Ship {
@@ -48,6 +50,7 @@ impl Ship {
 
         let tp = vec![Vector2f::default(); 4];
 
+        let ba = BoxArea::new(x, y, 70., 70.);
 
         Self {
             base: BaseObject {
@@ -70,7 +73,12 @@ impl Ship {
             transform_points: tp,
             thruster_points: thruster_v,
             transform_thruster_points: draw_tv,
+            box_area: ba,
         }
+    }
+
+    pub fn get_box_area(&self)->&BoxArea{
+        &self.box_area
     }
 
     pub fn get_position(&self) -> Vector2f {
@@ -115,6 +123,9 @@ impl Ship {
     pub fn draw(&mut self, window: &mut RenderWindow) {
         // ship
         if self.base.is_active {
+
+            self.box_area.draw(window);
+
             // ship
             window.draw_primitives(
                 &self.transform_ship_points,
@@ -236,6 +247,10 @@ impl Ship {
             }
 
             self.base.position += self.base.velocity * delta;
+
+            self.box_area.set_position(self.get_position());
+            self.box_area.update();
+
             self.screen_wrap(SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32, 20.);
             self.update_verts();
         }
