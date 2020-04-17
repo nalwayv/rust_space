@@ -3,6 +3,7 @@ use sfml::{graphics::*, system::*};
 //
 use crate::baseobject::*;
 use crate::boxarea::*;
+use crate::isactive::*;
 
 /// bullet
 pub struct Bullet {
@@ -14,6 +15,16 @@ pub struct Bullet {
     transform_points: Vec<Vector2f>,
     flip_color:bool,
     box_area: BoxArea,
+}
+
+impl IsActive for Bullet{
+    fn is_active(&self)->bool{
+        self.base.is_active
+    }
+
+    fn kill(&mut self){
+        self.base.is_active = false;
+    }
 }
 
 impl Bullet {
@@ -69,16 +80,12 @@ impl Bullet {
         self.base.position
     }
 
-    pub fn toggle_color(&mut self, value: bool) {
-        self.flip_color = value;
-    }
-
-    pub fn is_active(&self)->bool{
-        self.base.is_active
-    }
+    // pub fn toggle_color(&mut self, value: bool) {
+    //     self.flip_color = value;
+    // }
 
     pub fn draw(&mut self, window: &mut RenderWindow) {
-        if self.base.is_active {
+        if self.is_active() {
             self.box_area.draw(window);
 
             window.draw_primitives(
@@ -113,12 +120,12 @@ impl Bullet {
     }
 
     pub fn update(&mut self, delta: f32) {
-        if self.base.is_active {
+        if self.is_active() {
             self.base.position += self.base.velocity * delta;
 
             self.life_timer += delta;
             if self.life_timer > self.max_life_time {
-                self.base.is_active = false;
+                self.kill();
             }
 
             self.box_area.set_position(self.get_position());

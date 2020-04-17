@@ -7,12 +7,14 @@ mod baseobject;
 mod boxarea;
 mod bullet;
 mod globals;
+mod isactive;
 mod ship;
 
 use crate::asteroid::*;
 use crate::boxarea::*;
 use crate::bullet::*;
 use crate::globals::*;
+use crate::isactive::*;
 use crate::ship::*;
 
 use rand::{thread_rng, Rng};
@@ -21,18 +23,199 @@ use std::collections::HashMap;
 use std::f32::{consts::PI, INFINITY};
 
 // ----------
-// FUNCS
+// P SYSTEM
 // ----------
 
-// fn distance(start: Vector2f, end:Vector2f, min_dis:f32) -> bool{
-//     let c = end-start;
-//     let x = (c.x*c.x + c.y*c.y).sqrt();
+struct Particle {
+    position: Vector2f,
+    velocity: Vector2f,
+    acceleration: f32,
+    angle: f32,
+    shape: [Vertex; 2],
+    transform_shape: [Vertex; 2],
+    life_time: f32,
+    max_life_time: f32,
+    is_active: bool,
+}
 
-//     if x < min_dis{
-//         return true;
-//     }
-//     false
-// }
+impl IsActive for Particle {
+    fn is_active(&self) -> bool {
+        self.is_active
+    }
+
+    fn kill(&mut self) {
+        self.is_active = false;
+    }
+}
+
+impl Particle {
+    fn new() -> Self {
+        let p_shape = [Vertex::with_pos((-3.0, 0.)), Vertex::with_pos((3.0, 0.))];
+
+        Self {
+            position: Vector2f::default(),
+            velocity: Vector2f::default(),
+            acceleration: 0.,
+            angle: 0.,
+            shape: p_shape,
+            transform_shape: [Vertex::default(); 2],
+            life_time: 0.,
+            max_life_time: 0.,
+            is_active: true,
+        }
+    }
+
+    fn init(&mut self, x: f32, y: f32, acc: f32, ang: f32, life: f32) {
+        let dx = ang.cos() * acc;
+        let dy = ang.sin() * acc;
+
+        self.position.x = x;
+        self.position.y = y;
+        self.velocity.x = dx;
+        self.velocity.y = dy;
+        self.angle = ang;
+        self.acceleration = acc;
+        self.max_life_time = life;
+    }
+
+    fn draw(&mut self, window: &mut RenderWindow) {
+        if self.is_active {
+            window.draw_primitives(
+                &self.transform_shape,
+                PrimitiveType::LineStrip,
+                RenderStates::default(),
+            );
+        }
+    }
+
+    fn update_points(&mut self) {
+        for (idx, p) in self.shape.iter_mut().enumerate() {
+            let x = p.position.x;
+            let y = p.position.y;
+
+            let new_x = (x * self.angle.cos()) - (y * self.angle.sin());
+            let new_y = (x * self.angle.sin()) + (y * self.angle.cos());
+
+            self.transform_shape[idx].position.x = new_x;
+            self.transform_shape[idx].position.y = new_y;
+            self.transform_shape[idx].position += self.position;
+        }
+    }
+
+    fn is_dead(&self) -> bool {
+        self.is_active == false
+    }
+
+    fn update(&mut self, delta: f32) {
+        if self.is_active {
+            self.life_time += delta;
+
+            if self.life_time >= self.max_life_time {
+                self.kill();
+            }
+
+            self.position += self.velocity * delta;
+
+            self.update_points();
+        }
+    }
+}
+
+struct Explosion {
+    position: Vector2f,
+    radius: f32,
+    particles: [Particle; 8],
+    tally: usize,
+    is_active: bool,
+}
+
+impl IsActive for Explosion {
+    fn is_active(&self) -> bool {
+        self.is_active
+    }
+
+    fn kill(&mut self) {
+        self.is_active = false;
+    }
+}
+
+impl Explosion {
+    fn new() -> Self {
+        let p = [
+            Particle::new(),
+            Particle::new(),
+            Particle::new(),
+            Particle::new(),
+            Particle::new(),
+            Particle::new(),
+            Particle::new(),
+            Particle::new(),
+        ];
+
+        Self {
+            position: Vector2f::default(),
+            tally: 0,
+            radius: 3.,
+            particles: p,
+            is_active: false,
+        }
+    }
+
+    fn init(&mut self, x: f32, y: f32) {
+        //let mut angle = 0.0;
+        self.position.x = x;
+        self.position.y = y;
+        self.is_active = true;
+        let n = self.particles.len() as f32;
+        let slice = (PI * 2.) / n;
+        let mut rng = thread_rng();
+
+        for (idx, particle) in self.particles.iter_mut().enumerate() {
+            let rng_ang: f32 = rng.gen_range(1., 3.14);
+
+            let ang = (idx as f32) + rng_ang * slice;
+
+            // println!("ang: {}", ang);
+
+            let px = self.position.x + ang.cos() * self.radius;
+            let py = self.position.y + ang.sin() * self.radius;
+
+            // rng life and speed
+            let life: f32 = rng.gen_range(1.5, 2.5);
+            let acc: f32 = rng.gen_range(100., 200.);
+
+            particle.init(px, py, acc, ang, life);
+        }
+    }
+
+    fn draw(&mut self, window: &mut RenderWindow) {
+        if self.is_active {
+            for p in self.particles.iter_mut() {
+                p.draw(window);
+            }
+        }
+    }
+
+    fn update(&mut self, delta: f32) {
+        if self.is_active {
+            for p in self.particles.iter_mut() {
+                p.update(delta);
+
+                if p.is_dead() {
+                    self.tally += 1;
+                }
+            }
+
+            if self.tally >= self.particles.len() {
+                self.kill();
+            }
+        }
+    }
+}
+
+// ----------
+// FUNCS
+// ----------
 
 /// rng true or false
 fn random_bool() -> bool {
@@ -71,7 +254,6 @@ fn get_dot_product(v1: Vector2f, v2: Vector2f) -> f32 {
     result
 }
 
-// TODO: Separated Axis Theorem
 // link https://www.youtube.com/watch?v=7Ik2vowGcU0&t=414s
 fn sat(points_1: &Vec<Vector2f>, points_2: &Vec<Vector2f>) -> bool {
     // check shadow overlap
@@ -125,6 +307,8 @@ fn sat(points_1: &Vec<Vector2f>, points_2: &Vec<Vector2f>) -> bool {
 fn check_overlap(min_a: f32, max_a: f32, min_b: f32, max_b: f32) -> bool {
     min_b <= max_a && min_a <= max_b
 }
+
+/// aabb collision
 pub fn aabb(box1: &BoxArea, box2: &BoxArea) -> bool {
     // x
     let min_x1 = box1.get_position().x;
@@ -145,9 +329,12 @@ pub fn aabb(box1: &BoxArea, box2: &BoxArea) -> bool {
     check_a && check_b
 }
 
-fn filter_bullets(bullets: &mut Vec<Bullet>) {
-    if !bullets.is_empty() {
-        bullets.retain(|x| x.is_active());
+fn filter_out_inactive<T>(value: &mut Vec<T>)
+where
+    T: IsActive,
+{
+    if !value.is_empty() {
+        value.retain(|x| x.is_active());
     }
 }
 
@@ -156,6 +343,19 @@ fn populate_key_map(key_map: &mut HashMap<&Key, bool>) {
     key_map.insert(&Key::A, false);
     key_map.insert(&Key::D, false);
     key_map.insert(&Key::Space, false);
+}
+
+fn polulate_asteroids(x: f32, y: f32, asteroid_size: AsteroidSize, asteroids: &mut Vec<Asteroid>) {
+    let new_a = Asteroid::new(
+        x,
+        y,
+        d_to_r(random_number(1., 360.)),
+        8.,
+        3.,
+        random_bool(),
+        asteroid_size,
+    );
+    asteroids.push(new_a);
 }
 
 /// main run for sfml window
@@ -170,17 +370,17 @@ fn run(width: u32, height: u32) {
     let mut key_map: HashMap<&Key, bool> = HashMap::new();
     populate_key_map(&mut key_map);
 
-    // TODO: ship
+    // ship
     let center_x = width as f32 * 0.5;
     let center_y = height as f32 * 0.5;
     let mut ship = Ship::new(center_x, center_y, 0.);
 
-    // TODO: bullets
+    // bullets
     let mut shoot_time = 0.0;
     let max_shoot_time = 0.5;
     let mut bullets: Vec<Bullet> = Vec::new();
 
-    // TODO: asteroid
+    // asteroids
     let asteroid1 = Asteroid::new(
         50.,
         350.,
@@ -208,8 +408,14 @@ fn run(width: u32, height: u32) {
         random_bool(),
         AsteroidSize::LARGE,
     );
-
+    let mut gen_medium = false;
+    let mut gen_small = false;
+    let mut ax = 0.0;
+    let mut ay = 0.0;
     let mut asteroids = vec![asteroid1, asteroid2, asteroid3];
+
+    // explosions
+    let mut explosions: Vec<Explosion> = vec![];
 
     while window.is_open() {
         // INPUTS ---
@@ -272,7 +478,10 @@ fn run(width: u32, height: u32) {
         if !is_paused {
             let delta = clock.restart().as_seconds();
 
-            // UPDATE ---
+            // INPUTS ---
+            ship.inputs(&key_map);
+
+            // COLLISION ---
 
             // collision
             // ship asteroid
@@ -289,21 +498,65 @@ fn run(width: u32, height: u32) {
             }
 
             // asteroid bullet
-            for b in bullets.iter_mut() {
-                for a in asteroids.iter_mut() {
-                    if aabb(a.get_box_area(), b.get_box_area()) {
-                        if sat(a.get_tp(), b.get_tp()) {
-                            a.toggle_color(true);
-                            b.toggle_color(true);
+            if !bullets.is_empty() {
+                for b in bullets.iter_mut() {
+                    for a in asteroids.iter_mut() {
+                        if a.is_active() {
+                            if aabb(a.get_box_area(), b.get_box_area()) {
+                                if sat(a.get_tp(), b.get_tp()) {
+                                    a.toggle_color(true);
+
+                                    // init new explosions
+                                    let x = b.get_position().x;
+                                    let y = b.get_position().y;
+
+                                    let mut ex = Explosion::new();
+                                    ex.init(x, y);
+                                    explosions.push(ex);
+
+                                    match a.get_asteroid_type() {
+                                        AsteroidSize::LARGE => {
+                                            gen_medium = true;
+                                            ax = a.get_position().x;
+                                            ay = a.get_position().y;
+                                        }
+                                        AsteroidSize::MEDIUM => {
+                                            gen_small = true;
+                                            ax = a.get_position().x;
+                                            ay = a.get_position().y;
+                                        }
+                                        _ => {}
+                                    }
+                                    // remove
+                                    a.kill();
+                                    b.kill();
+                                }
+                            } else {
+                                a.toggle_color(false);
+                            }
                         }
-                    } else {
-                        a.toggle_color(false);
-                        b.toggle_color(false);
                     }
                 }
             }
 
-            ship.inputs(&key_map);
+            if gen_medium {
+                polulate_asteroids(ax, ay, AsteroidSize::MEDIUM, &mut asteroids);
+                gen_medium = false;
+            }
+            if gen_small {
+                polulate_asteroids(ax, ay, AsteroidSize::SMALL, &mut asteroids);
+                gen_small = false;
+            }
+
+            // UPDATE ---
+            // explosion.update(delta);
+            if !explosions.is_empty() {
+                for e in explosions.iter_mut() {
+                    e.update(delta);
+                }
+            }
+            filter_out_inactive(&mut explosions);
+
             ship.update(delta);
 
             shoot_time += delta;
@@ -324,7 +577,7 @@ fn run(width: u32, height: u32) {
                 }
             }
 
-            filter_bullets(&mut bullets);
+            filter_out_inactive(&mut bullets);
 
             if !asteroids.is_empty() {
                 for a in asteroids.iter_mut() {
@@ -336,6 +589,13 @@ fn run(width: u32, height: u32) {
 
             window.clear(Color::BLACK);
             // ->
+            // explosions
+            if !explosions.is_empty() {
+                for e in explosions.iter_mut() {
+                    e.draw(&mut window);
+                }
+            }
+
             //ship
             ship.draw(&mut window);
 

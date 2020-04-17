@@ -6,6 +6,7 @@ use std::f32::consts::PI;
 use crate::baseobject::*;
 use crate::globals::*;
 use crate::boxarea::*;
+use crate::isactive::*;
 
 /// asteroid types
 #[derive(Copy, Clone)]
@@ -28,6 +29,16 @@ pub struct Asteroid {
     transform_points: Vec<Vector2f>,
     flip_color: bool,
     box_area: BoxArea,
+}
+
+impl IsActive for Asteroid{
+    fn is_active(&self)->bool{
+        self.base.is_active
+    }
+
+    fn kill(&mut self){
+        self.base.is_active = false;
+    }
 }
 
 // #[allow(dead_code)]
@@ -116,6 +127,10 @@ impl Asteroid {
         self.base.position
     }
 
+    pub fn get_asteroid_type(&self)->AsteroidSize{
+        self.asteroid_size
+    }
+
     /// toggle color
     pub fn toggle_color(&mut self, value: bool) {
         self.flip_color = value;
@@ -151,7 +166,7 @@ impl Asteroid {
 
     /// draw asteroids transform points to screen in LineStrip format
     pub fn draw(&mut self, window: &mut RenderWindow) {
-        if self.base.is_active {
+        if self.is_active() {
 
             self.box_area.draw(window);
 
@@ -182,7 +197,7 @@ impl Asteroid {
     }
 
     pub fn update(&mut self, delta: f32) {
-        if self.base.is_active {
+        if self.is_active() {
             self.base.angle += self.rotate_speed * delta;
 
             if self.base.angle < 0.0 {
