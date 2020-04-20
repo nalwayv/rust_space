@@ -1,9 +1,17 @@
 // USE
 use sfml::{graphics::*, system::*};
 //
-use crate::baseobject::*;
-use crate::boxarea::*;
-use crate::isactive::*;
+use crate::baseobject::BaseObject;
+use crate::boxarea::BoxArea;
+use crate::isactive::IsActive;
+
+// so bullets from alien dont destroy asteroids
+#[derive (PartialEq)]
+pub enum ShooterType{
+    PLAYER,
+    ALIEN,
+}
+
 
 /// bullet
 pub struct Bullet {
@@ -13,7 +21,8 @@ pub struct Bullet {
     bullet_points: [Vertex; 5],
     transform_bullet_points: [Vertex; 5],
     transform_points: Vec<Vector2f>,
-    flip_color:bool,
+    is_debug: bool,
+    mask: ShooterType,
     box_area: BoxArea,
 }
 
@@ -28,7 +37,7 @@ impl IsActive for Bullet{
 }
 
 impl Bullet {
-    pub fn new(x: f32, y:f32, ang:f32) -> Self {
+    pub fn new(x: f32, y:f32, ang:f32, mask: ShooterType) -> Self {
         let bullet_v = [
             Vertex::with_pos((5., -0.2)), 
             Vertex::with_pos((5., 0.2)),
@@ -61,9 +70,15 @@ impl Bullet {
             bullet_points: bullet_v,
             transform_bullet_points: draw_bv,
             transform_points:tp,
-            flip_color: false,
+            is_debug: false,
             box_area: ba,
+            mask: mask,
         }
+    }
+
+    /// get owner of this current projectile
+    pub fn get_shooter_type(&self)->&ShooterType{
+        &self.mask
     }
 
     /// get vec of the current transform points for this ship
@@ -80,13 +95,11 @@ impl Bullet {
         self.base.position
     }
 
-    // pub fn toggle_color(&mut self, value: bool) {
-    //     self.flip_color = value;
-    // }
-
     pub fn draw(&mut self, window: &mut RenderWindow) {
         if self.is_active() {
-            self.box_area.draw(window);
+            if self.is_debug {
+                self.box_area.draw(window);
+            }
 
             window.draw_primitives(
                 &self.transform_bullet_points,
@@ -107,13 +120,6 @@ impl Bullet {
             self.transform_bullet_points[idx].position.x = new_x;
             self.transform_bullet_points[idx].position.y = new_y;
             self.transform_bullet_points[idx].position += self.base.position;
-
-
-            if self.flip_color {
-                self.transform_bullet_points[idx].color = Color::RED;
-            } else {
-                self.transform_bullet_points[idx].color = Color::WHITE;
-            }
 
             self.transform_points[idx] = self.transform_bullet_points[idx].position;
         }

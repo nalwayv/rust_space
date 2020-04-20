@@ -4,28 +4,39 @@ use sfml::{graphics::*, system::*, window::*};
 use std::collections::HashMap;
 use std::f32::consts::PI;
 //
-use crate::baseobject::*;
-use crate::globals::*;
-use crate::boxarea::*;
+use crate::baseobject::BaseObject;
+use crate::boxarea::BoxArea;
+use crate::globals::{v2_length, v2_unit, SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::isactive::IsActive;
 
 #[allow(dead_code)]
 pub struct Ship {
     base: BaseObject,
 
-    deceleration: f32,
+    friction: f32,
     top_speed: f32,
     rotation_speed: f32,
     is_turning_left: bool,
     is_turning_right: bool,
     is_thrusting: bool,
     is_shooting: bool,
-    flip_color: bool,
-    ship_points: [Vertex; 4],
-    transform_ship_points: [Vertex; 4],
-    transform_points: Vec<Vector2f>,
+    is_debug: bool,
+    points: [Vertex; 4],
+    transform_points: [Vertex; 4],
+    tp: Vec<Vector2f>,
     thruster_points: [Vertex; 4],
     transform_thruster_points: [Vertex; 4],
     box_area: BoxArea,
+}
+
+impl IsActive for Ship {
+    fn is_active(&self) -> bool {
+        self.base.is_active
+    }
+
+    fn kill(&mut self) {
+        self.base.is_active = false;
+    }
 }
 
 impl Ship {
@@ -60,24 +71,24 @@ impl Ship {
                 angle: angle,
                 is_active: true,
             },
-            deceleration: 20.,
+            friction: 20.,
             top_speed: 250.,
             rotation_speed: 5.,
             is_turning_left: false,
             is_turning_right: false,
             is_thrusting: false,
             is_shooting: false,
-            flip_color: false,
-            ship_points: ship_v,
-            transform_ship_points: draw_sv,
-            transform_points: tp,
+            is_debug: false,
+            points: ship_v,
+            transform_points: draw_sv,
+            tp: tp,
             thruster_points: thruster_v,
             transform_thruster_points: draw_tv,
             box_area: ba,
         }
     }
 
-    pub fn get_box_area(&self)->&BoxArea{
+    pub fn get_box_area(&self) -> &BoxArea {
         &self.box_area
     }
 
@@ -89,14 +100,12 @@ impl Ship {
         self.base.angle
     }
 
+
     /// get vec of the current transform points for this ship
     pub fn get_tp(&self) -> &Vec<Vector2f> {
-        &self.transform_points
+        &self.tp
     }
 
-    pub fn toggle_color(&mut self, value: bool) {
-        self.flip_color = value;
-    }
 
     pub fn is_fireing(&self) -> bool {
         self.is_shooting
@@ -122,13 +131,14 @@ impl Ship {
 
     pub fn draw(&mut self, window: &mut RenderWindow) {
         // ship
-        if self.base.is_active {
-
-            self.box_area.draw(window);
+        if self.is_active() {
+            if self.is_debug {
+                self.box_area.draw(window);
+            }
 
             // ship
             window.draw_primitives(
-                &self.transform_ship_points,
+                &self.transform_points,
                 PrimitiveType::LineStrip,
                 RenderStates::default(),
             );
@@ -162,28 +172,23 @@ impl Ship {
         }
     }
 
-    fn update_verts(&mut self) {
+    fn update_points(&mut self) {
         // rotation matrix
         // [ cos + -sin ]
         // [ sin +  cos ]
         // ship
-        for (idx, p) in self.ship_points.iter_mut().enumerate() {
-            let x = p.position.x;
-            let y = p.position.y;
+        for (idx, p) in self.points.iter_mut().enumerate() {
+            let pos = p.position;
 
-            self.transform_ship_points[idx].position.x =
-                (x * self.base.angle.cos()) - (y * self.base.angle.sin());
-            self.transform_ship_points[idx].position.y =
-                (x * self.base.angle.sin()) + (y * self.base.angle.cos());
-            self.transform_ship_points[idx].position += self.base.position;
+            let new_x = (pos.x * self.base.angle.cos()) - (pos.y * self.base.angle.sin());
+            let new_y = (pos.x * self.base.angle.sin()) + (pos.y * self.base.angle.cos());
 
-            if self.flip_color {
-                self.transform_ship_points[idx].color = Color::RED;
-            } else {
-                self.transform_ship_points[idx].color = Color::WHITE;
-            }
+            self.transform_points[idx].position.x = new_x;
+            self.transform_points[idx].position.y = new_y;
+            self.transform_points[idx].position += self.base.position;
 
-            self.transform_points[idx] = self.transform_ship_points[idx].position;
+            // for sat collision
+            self.tp[idx] = self.transform_points[idx].position;
         }
 
         if self.is_thrusting {
@@ -193,25 +198,21 @@ impl Ship {
                 let x = vert.position.x + offset;
                 let y = vert.position.y;
 
-                self.transform_thruster_points[idx].position.x =
-                    (x * self.base.angle.cos()) - (y * self.base.angle.sin());
-                self.transform_thruster_points[idx].position.y =
-                    (x * self.base.angle.sin()) + (y * self.base.angle.cos());
 
+                let new_x = (x * self.base.angle.cos()) - (y * self.base.angle.sin());
+                let new_y =  (x * self.base.angle.sin()) + (y * self.base.angle.cos());
+
+                self.transform_thruster_points[idx].position.x = new_x;
+                self.transform_thruster_points[idx].position.y = new_y;
                 self.transform_thruster_points[idx].position += self.base.position;
 
-                if self.flip_color {
-                    self.transform_thruster_points[idx].color = Color::RED;
-                } else {
-                    self.transform_thruster_points[idx].color = Color::WHITE;
-                }
             }
         }
     }
 
     pub fn update(&mut self, delta: f32) {
         // angle
-        if self.base.is_active {
+        if self.is_active() {
             if self.base.angle < 0. {
                 self.base.angle += PI * 2.;
             }
@@ -234,25 +235,27 @@ impl Ship {
             }
 
             // slow down/top speed
-            let length = (self.base.velocity.x * self.base.velocity.x
-                + self.base.velocity.y * self.base.velocity.y)
-                .sqrt();
+            let len = v2_length(self.base.velocity);
 
-            if length > 0. {
-                self.base.velocity -= self.base.velocity / length * self.deceleration * delta;
+            if len > 0. {
+                let unit = v2_unit(self.base.velocity);
+                self.base.velocity -= unit * self.friction * delta;
             }
 
-            if length > self.top_speed {
-                self.base.velocity = (self.base.velocity / length) * self.top_speed
+            if len > self.top_speed {
+                let unit = v2_unit(self.base.velocity);
+                self.base.velocity = unit * self.top_speed;
             }
 
+            // p=v*t
             self.base.position += self.base.velocity * delta;
 
+            // box collider
             self.box_area.set_position(self.get_position());
             self.box_area.update();
 
             self.screen_wrap(SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32, 20.);
-            self.update_verts();
+            self.update_points();
         }
     }
 }

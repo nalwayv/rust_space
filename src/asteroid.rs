@@ -3,10 +3,10 @@ use sfml::{graphics::*, system::*};
 //
 use std::f32::consts::PI;
 //
-use crate::baseobject::*;
-use crate::globals::*;
-use crate::boxarea::*;
-use crate::isactive::*;
+use crate::baseobject::BaseObject;
+use crate::globals::{SCREEN_WIDTH, SCREEN_HEIGHT};
+use crate::boxarea::BoxArea;
+use crate::isactive::IsActive;
 
 /// asteroid types
 #[derive(Copy, Clone)]
@@ -24,10 +24,11 @@ pub struct Asteroid {
     base: BaseObject,
     asteroid_size: AsteroidSize,
     rotate_speed: f32,
-    asteroid_points: [Vertex; 9],
-    transform_asteroid_points: [Vertex; 9],
-    transform_points: Vec<Vector2f>,
+    points: [Vertex; 9],
+    transform_points: [Vertex; 9],
+    tp: Vec<Vector2f>,
     flip_color: bool,
+    is_debug:bool,
     box_area: BoxArea,
 }
 
@@ -110,10 +111,11 @@ impl Asteroid {
             },
             asteroid_size: size_type,
             rotate_speed: speed,
-            asteroid_points: points,
-            transform_asteroid_points: [Vertex::default(); 9],
-            transform_points: vec![Vector2f::default(); 9],
+            points: points,
+            transform_points: [Vertex::default(); 9],
+            tp: vec![Vector2f::default(); 9],
             flip_color: false,
+            is_debug: false,
             box_area: ba,
         }
     }
@@ -138,28 +140,28 @@ impl Asteroid {
 
     /// get vec of the current transform points for this asteroid
     pub fn get_tp(&self) -> &Vec<Vector2f> {
-        &self.transform_points
+        &self.tp
     }
 
     /// update transform points
     fn update_points(&mut self) {
-        for (idx, p) in self.asteroid_points.iter_mut().enumerate() {
+        for (idx, p) in self.points.iter_mut().enumerate() {
             let x = p.position.x;
             let y = p.position.y;
 
             let new_x = (x * self.base.angle.cos()) - (y * self.base.angle.sin());
             let new_y = (x * self.base.angle.sin()) + (y * self.base.angle.cos());
 
-            self.transform_asteroid_points[idx].position.x = new_x;
-            self.transform_asteroid_points[idx].position.y = new_y;
-            self.transform_asteroid_points[idx].position += self.base.position;
+            self.transform_points[idx].position.x = new_x;
+            self.transform_points[idx].position.y = new_y;
+            self.transform_points[idx].position += self.base.position;
 
-            self.transform_points[idx] = self.transform_asteroid_points[idx].position;
+            self.tp[idx] = self.transform_points[idx].position;
 
             if self.flip_color {
-                self.transform_asteroid_points[idx].color = Color::RED;
+                self.transform_points[idx].color = Color::RED;
             } else {
-                self.transform_asteroid_points[idx].color = Color::WHITE;
+                self.transform_points[idx].color = Color::WHITE;
             }
         }
     }
@@ -167,11 +169,12 @@ impl Asteroid {
     /// draw asteroids transform points to screen in LineStrip format
     pub fn draw(&mut self, window: &mut RenderWindow) {
         if self.is_active() {
-
-            self.box_area.draw(window);
+            if self.is_debug {
+                self.box_area.draw(window);
+            }
 
             window.draw_primitives(
-                &self.transform_asteroid_points,
+                &self.transform_points,
                 PrimitiveType::LineStrip,
                 RenderStates::default(),
             );
