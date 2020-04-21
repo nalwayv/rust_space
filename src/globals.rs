@@ -31,7 +31,7 @@ pub fn d_to_r(deg: f32) -> f32 {
 }
 
 /// get vector normal between two points
-pub fn v2_normal(a: &Vector2f, b: &Vector2f) -> Vector2f {
+pub fn v2_normal(a: Vector2f, b: Vector2f) -> Vector2f {
     // (-y, x)
     Vector2f::new(-(b.y - a.y), b.x - a.x)
 }
@@ -86,7 +86,7 @@ pub fn v2_distance_to_sq(a: Vector2f, b: Vector2f)->f32{
 pub fn v2_angle_to_point(a: Vector2f, b: Vector2f)->f32{
     // using sin-1
     // let dis = *a - *b;
-    // let len = v2_length_sq(dis);
+    // let len = v2_length(dis);
     // (dis.y / len).asin()
 
     let dis = a - b;

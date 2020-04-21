@@ -9,6 +9,7 @@ mod bullet;
 mod explosion;
 mod globals;
 mod isactive;
+mod lives;
 mod particle;
 mod ship;
 mod ufo;
@@ -19,6 +20,7 @@ use crate::bullet::*;
 use crate::explosion::*;
 use crate::globals::*;
 use crate::isactive::*;
+use crate::lives::*;
 use crate::ship::*;
 use crate::ufo::*;
 
@@ -54,7 +56,7 @@ fn sat(points_1: &Vec<Vector2f>, points_2: &Vec<Vector2f>) -> bool {
         for x in 0..n1 {
             let y = (x + 1) % n1;
             // norm
-            let normal = v2_normal(&p1[x], &p1[y]);
+            let normal = v2_normal(p1[x], p1[y]);
 
             // shape 1
             let mut min_value1 = INFINITY;
@@ -166,6 +168,7 @@ fn run(width: u32, height: u32) {
     let center_x = width as f32 * 0.5;
     let center_y = height as f32 * 0.5;
     let mut ship = Ship::new(center_x, center_y, 0.);
+    let mut is_damaged = false;
 
     // Ufo
     let mut ufo = Ufo::new();
@@ -208,8 +211,11 @@ fn run(width: u32, height: u32) {
         ),
     ];
 
-    // explosions
+    // Explosions
     let mut explosions: Vec<Explosion> = vec![];
+
+    // Lives
+    let mut lives = Lives::new(50., 25.);
 
     while window.is_open() {
         // INPUTS ---
@@ -220,6 +226,7 @@ fn run(width: u32, height: u32) {
                     Key::Escape => window.close(),
                     Key::P => is_paused = !is_paused,
 
+                    Key::L => ship.alive(),
                     Key::W => {
                         if let Some(x) = key_map.get_mut(&Key::W) {
                             *x = true;
@@ -273,36 +280,45 @@ fn run(width: u32, height: u32) {
             let delta = clock.restart().as_seconds();
 
             // INPUTS ---
-            ship.inputs(&key_map);
 
-            //  set ship angle to mouse pointer
-            // let sp = ship.get_position();
-            // let mp = Vector2f::new(
-            //     window.mouse_position().x as f32,
-            //     window.mouse_position().y as f32,
-            // );
-            // let dir = v2_direction(&mp, &sp);
-            // let ang = dir.y.atan2(dir.x);
-            // ship.set_angle(ang);
+            ship.inputs(&key_map);
 
             // COLLISION ---
 
             // collision
 
-            // buller / ufo
+            // buller / ufo / ship
             if ship.is_active() && ufo.is_active() && !bullets.is_empty() {
+                // player bullet to alien or alien bullet to ship
                 for b in bullets.iter_mut() {
                     if *b.get_shooter_type() == ShooterType::ALIEN {
-                        continue;
-                    }
-                    if aabb(b.get_box_area(), ufo.get_box_area()) {
-                        if sat(b.get_tp(), ufo.get_tp()) {
-                            let x = b.get_position().x;
-                            let y = b.get_position().y;
+                        if aabb(b.get_box_area(), ship.get_box_area()) {
+                            if sat(b.get_tp(), ship.get_tp()) {
+                                let x = b.get_position().x;
+                                let y = b.get_position().y;
 
-                            explosions.push(Explosion::new(x, y));
+                                explosions.push(Explosion::new(x, y));
+                                is_damaged = true;
 
-                            ufo.kill();
+                                ship.kill();
+                                b.kill();
+
+                                break;
+                            }
+                        }
+                    } else if *b.get_shooter_type() == ShooterType::PLAYER {
+                        if aabb(b.get_box_area(), ufo.get_box_area()) {
+                            if sat(b.get_tp(), ufo.get_tp()) {
+                                let x = b.get_position().x;
+                                let y = b.get_position().y;
+
+                                explosions.push(Explosion::new(x, y));
+
+                                ufo.kill();
+                                b.kill();
+
+                                break;
+                            }
                         }
                     }
                 }
@@ -313,10 +329,35 @@ fn run(width: u32, height: u32) {
                 for a in asteroids.iter_mut() {
                     if aabb(ship.get_box_area(), a.get_box_area()) {
                         if sat(ship.get_tp(), a.get_tp()) {
-                            a.toggle_color(true);
+                            is_damaged = true;
+
+                            let ax = a.get_position().x;
+                            let ay = a.get_position().y;
+                            explosions.push(Explosion::new(ax, ay));
+
+                            let sx = ship.get_position().x;
+                            let sy = ship.get_position().y;
+                            explosions.push(Explosion::new(sx, sy));
+
+                            match a.get_asteroid_type() {
+                                AsteroidSize::LARGE => {
+                                    gen_type =
+                                        GenAsteroid::MEDIUM(a.get_position().x, a.get_position().y);
+                                    gen_new_asteroids = true;
+                                }
+                                AsteroidSize::MEDIUM => {
+                                    gen_type =
+                                        GenAsteroid::SMALL(a.get_position().x, a.get_position().y);
+                                    gen_new_asteroids = true;
+                                }
+                                _ => {}
+                            }
+
+                            ship.kill();
+                            a.kill();
+
+                            break;
                         }
-                    } else {
-                        a.toggle_color(false);
                     }
                 }
             }
@@ -359,9 +400,8 @@ fn run(width: u32, height: u32) {
                                     // remove
                                     a.kill();
                                     b.kill();
+                                    break;
                                 }
-                            } else {
-                                a.toggle_color(false);
                             }
                         }
                     }
@@ -381,6 +421,11 @@ fn run(width: u32, height: u32) {
                 gen_new_asteroids = false;
             }
 
+            if is_damaged {
+                lives.remove_life();
+                is_damaged = false;
+            }
+
             // UPDATE ---
             // explosion.update(delta);
             if !explosions.is_empty() {
@@ -388,11 +433,11 @@ fn run(width: u32, height: u32) {
                     e.update(delta);
                 }
             }
-            filter_out_inactive(&mut explosions);
 
+            // Ship
             ship.update(delta);
 
-            // ship bullets
+            // ship shooting
             shoot_time += delta;
             if ship.is_fireing() && shoot_time > max_shoot_time {
                 let new_b = Bullet::new(
@@ -406,8 +451,10 @@ fn run(width: u32, height: u32) {
                 shoot_time = 0.;
             }
 
-            // ufo bullets
-            if ufo.is_shooting() {
+            // Ufo
+            ufo.update(delta);
+            // ufo shooting
+            if ufo.is_shooting() && ship.is_active() {
                 // get angle between ship and ufo
                 let angle = v2_angle_to_point(ship.get_position(), ufo.get_position());
 
@@ -421,34 +468,36 @@ fn run(width: u32, height: u32) {
                 bullets.push(new_b);
             }
 
+            // Bullets
             if !bullets.is_empty() {
                 for bullet in bullets.iter_mut() {
                     bullet.update(delta);
                 }
             }
-            filter_out_inactive(&mut bullets);
 
+            // Asteroids
             if !asteroids.is_empty() {
                 for a in asteroids.iter_mut() {
                     a.update(delta);
                 }
             }
 
-            ufo.update(delta);
+            // Filter out inactive
+            filter_out_inactive(&mut explosions);
+            filter_out_inactive(&mut bullets);
+            filter_out_inactive(&mut asteroids);
+
+            lives.update();
 
             // RENDER ---
 
             window.clear(Color::BLACK);
             // -> start
-            // explosions
-            if !explosions.is_empty() {
-                for e in explosions.iter_mut() {
-                    e.draw(&mut window);
-                }
-            }
-
             //ship
             ship.draw(&mut window);
+
+            // ufo
+            ufo.draw(&mut window);
 
             // asteroid
             if !asteroids.is_empty() {
@@ -456,6 +505,7 @@ fn run(width: u32, height: u32) {
                     a.draw(&mut window);
                 }
             }
+
             // bullets
             if !bullets.is_empty() {
                 for bullet in bullets.iter_mut() {
@@ -463,8 +513,15 @@ fn run(width: u32, height: u32) {
                 }
             }
 
-            ufo.draw(&mut window);
+            // explosions
+            if !explosions.is_empty() {
+                for e in explosions.iter_mut() {
+                    e.draw(&mut window);
+                }
+            }
 
+            // lives
+            lives.draw(&mut window);
             // <- end
             window.display();
         } else {

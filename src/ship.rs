@@ -100,6 +100,9 @@ impl Ship {
         self.base.angle
     }
 
+    pub fn alive(&mut self){
+        self.base.is_active = true;
+    }
 
     /// get vec of the current transform points for this ship
     pub fn get_tp(&self) -> &Vec<Vector2f> {
