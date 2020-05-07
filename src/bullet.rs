@@ -6,12 +6,11 @@ use crate::boxarea::BoxArea;
 use crate::isactive::IsActive;
 
 // so bullets from alien dont destroy asteroids
-#[derive (PartialEq)]
-pub enum ShooterType{
+#[derive(PartialEq)]
+pub enum ShooterType {
     PLAYER,
     ALIEN,
 }
-
 
 /// bullet
 pub struct Bullet {
@@ -26,20 +25,20 @@ pub struct Bullet {
     box_area: BoxArea,
 }
 
-impl IsActive for Bullet{
-    fn is_active(&self)->bool{
+impl IsActive for Bullet {
+    fn is_active(&self) -> bool {
         self.base.is_active
     }
 
-    fn kill(&mut self){
+    fn kill(&mut self) {
         self.base.is_active = false;
     }
 }
 
 impl Bullet {
-    pub fn new(x: f32, y:f32, ang:f32, mask: ShooterType) -> Self {
+    pub fn new(x: f32, y: f32, ang: f32, mask: ShooterType) -> Self {
         let bullet_v = [
-            Vertex::with_pos((5., -0.2)), 
+            Vertex::with_pos((5., -0.2)),
             Vertex::with_pos((5., 0.2)),
             Vertex::with_pos((-5.0, 0.2)),
             Vertex::with_pos((-5.0, -0.2)),
@@ -56,7 +55,6 @@ impl Bullet {
 
         let ba = BoxArea::new(x, y, 10., 10.);
 
-
         Self {
             base: BaseObject {
                 position: Vector2f::new(x, y),
@@ -69,7 +67,7 @@ impl Bullet {
             max_life_time: 1.5,
             bullet_points: bullet_v,
             transform_bullet_points: draw_bv,
-            transform_points:tp,
+            transform_points: tp,
             is_debug: false,
             box_area: ba,
             mask: mask,
@@ -77,7 +75,7 @@ impl Bullet {
     }
 
     /// get owner of this current projectile
-    pub fn get_shooter_type(&self)->&ShooterType{
+    pub fn get_shooter_type(&self) -> &ShooterType {
         &self.mask
     }
 
@@ -85,8 +83,8 @@ impl Bullet {
     pub fn get_tp(&self) -> &Vec<Vector2f> {
         &self.transform_points
     }
-    
-    pub fn get_box_area(&self)->&BoxArea{
+
+    pub fn get_box_area(&self) -> &BoxArea {
         &self.box_area
     }
 
@@ -121,6 +119,11 @@ impl Bullet {
             self.transform_bullet_points[idx].position.y = new_y;
             self.transform_bullet_points[idx].position += self.base.position;
 
+            match self.mask {
+                ShooterType::ALIEN => self.transform_bullet_points[idx].color = Color::RED,
+                ShooterType::PLAYER => self.transform_bullet_points[idx].color = Color::WHITE,
+            }
+
             self.transform_points[idx] = self.transform_bullet_points[idx].position;
         }
     }
@@ -136,7 +139,6 @@ impl Bullet {
 
             self.box_area.set_position(self.get_position());
             self.box_area.update();
-            
             self.update_points();
         }
     }

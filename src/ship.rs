@@ -100,6 +100,10 @@ impl Ship {
         self.base.angle
     }
 
+    pub fn is_moveing(&self)->bool{
+        self.is_thrusting
+    }
+
     pub fn alive(&mut self){
         self.base.is_active = true;
     }
@@ -177,8 +181,8 @@ impl Ship {
 
     fn update_points(&mut self) {
         // rotation matrix
-        // [ cos + -sin ]
-        // [ sin +  cos ]
+        // [ cos - sin ]
+        // [ sin + cos ]
         // ship
         for (idx, p) in self.points.iter_mut().enumerate() {
             let pos = p.position;

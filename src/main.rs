@@ -24,9 +24,42 @@ use crate::lives::*;
 use crate::ship::*;
 use crate::ufo::*;
 
-use sfml::{graphics::*, system::*, window::*};
+use sfml::{graphics::*, system::*, window::*, audio::*};
 use std::collections::HashMap;
 use std::f32::INFINITY;
+
+// ----------
+// SOUND MANAGER
+// ----------
+struct SoundManager{
+    sound_map: HashMap<String, SfBox<SoundBuffer>>,
+}
+
+impl SoundManager{
+
+    fn new()->Self{
+        Self{
+            sound_map: HashMap::default(),
+        }
+    }
+
+    fn load(&mut self, id:&str, file_path:&str){
+        if !self.sound_map.contains_key(id){
+            let new_sound = SoundBuffer::from_file(file_path);
+            if let Some(x) = new_sound{
+                self.sound_map.insert(String::from(id), x);
+            }
+        }
+    }
+
+
+    pub fn get(&self, id: &str)->Option<&SoundBuffer>{
+        if let Some(x) = self.sound_map.get(id){
+            return Some(x);
+        }
+        None
+    }
+}
 
 // ----------
 // FUNCS
@@ -164,6 +197,14 @@ fn run(width: u32, height: u32) {
     let mut key_map: HashMap<&Key, bool> = HashMap::new();
     populate_key_map(&mut key_map);
 
+    // SM
+    let mut sm = SoundManager::new();
+    sm.load("fire", "assets/sound/fire.wav");
+    sm.load("explosion", "assets/sound/explosion.wav");
+    let mut fire_sound = Sound::with_buffer(sm.get("fire").unwrap());
+    let mut explosion_sound = Sound::with_buffer(sm.get("explosion").unwrap());
+
+
     // Ship
     let center_x = width as f32 * 0.5;
     let center_y = height as f32 * 0.5;
@@ -171,7 +212,7 @@ fn run(width: u32, height: u32) {
     let mut is_damaged = false;
 
     // Ufo
-    let mut ufo = Ufo::new();
+    let mut ufo = Ufo::new(50. ,50., 100.);
 
     // Bullets
     let mut shoot_time = 0.0;
@@ -306,7 +347,9 @@ fn run(width: u32, height: u32) {
                                 break;
                             }
                         }
-                    } else if *b.get_shooter_type() == ShooterType::PLAYER {
+                    } 
+
+                    if *b.get_shooter_type() == ShooterType::PLAYER {
                         if aabb(b.get_box_area(), ufo.get_box_area()) {
                             if sat(b.get_tp(), ufo.get_tp()) {
                                 let x = b.get_position().x;
@@ -316,6 +359,8 @@ fn run(width: u32, height: u32) {
 
                                 ufo.kill();
                                 b.kill();
+
+                                explosion_sound.play();
 
                                 break;
                             }
@@ -355,6 +400,8 @@ fn run(width: u32, height: u32) {
 
                             ship.kill();
                             a.kill();
+
+                            explosion_sound.play();
 
                             break;
                         }
@@ -400,6 +447,9 @@ fn run(width: u32, height: u32) {
                                     // remove
                                     a.kill();
                                     b.kill();
+
+                                    explosion_sound.play();
+
                                     break;
                                 }
                             }
@@ -439,7 +489,7 @@ fn run(width: u32, height: u32) {
 
             // ship shooting
             shoot_time += delta;
-            if ship.is_fireing() && shoot_time > max_shoot_time {
+            if ship.is_active() && ship.is_fireing() && shoot_time > max_shoot_time {
                 let new_b = Bullet::new(
                     ship.get_position().x,
                     ship.get_position().y,
@@ -448,20 +498,24 @@ fn run(width: u32, height: u32) {
                 );
 
                 bullets.push(new_b);
+
+                fire_sound.play();
+
                 shoot_time = 0.;
             }
 
             // Ufo
             ufo.update(delta);
             // ufo shooting
-            if ufo.is_shooting() && ship.is_active() {
+            if ufo.is_active() && ufo.is_shooting() && ship.is_active() {
                 // get angle between ship and ufo
                 let angle = v2_angle_to_point(ship.get_position(), ufo.get_position());
+                let rng_fudge = random_number(-0.2, 0.2);
 
                 let new_b = Bullet::new(
                     ufo.get_position().x,
                     ufo.get_position().y,
-                    angle,
+                    angle + rng_fudge,
                     ShooterType::ALIEN,
                 );
 

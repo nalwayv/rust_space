@@ -1,12 +1,16 @@
-use sfml::{graphics::*, system::*};
 use crate::baseobject::BaseObject;
-use crate::boxarea::BoxArea; 
+use crate::boxarea::BoxArea;
+use crate::globals::{random_number, SCREEN_HEIGHT, SCREEN_WIDTH};
 use crate::isactive::IsActive;
+use sfml::{graphics::*, system::*};
+use std::f32::consts::PI;
 
 pub struct Ufo {
     base: BaseObject,
     shoot_time: f32,
     max_shoot_time: f32,
+    turn_time: f32,
+    max_turn_time: f32,
     is_shooting: bool,
     points: [Vertex; 7],
     transform_points: [Vertex; 7],
@@ -26,8 +30,7 @@ impl IsActive for Ufo {
 }
 
 impl Ufo {
-    pub fn new() -> Self {
-
+    pub fn new(x: f32, y: f32, acc: f32) -> Self {
         let p = [
             Vertex::with_pos((5., -5.)),
             Vertex::with_pos((16., 0.)),
@@ -38,26 +41,25 @@ impl Ufo {
             Vertex::with_pos((5., -5.)),
         ];
 
-        let px = 50.0;
-        let py = 50.0;
         let ang: f32 = 0.0;
-        let acc = 100.0;
         let dx = ang.cos() * acc;
         let dy = ang.sin() * acc;
 
-        let ba = BoxArea::new(px, py, 70., 70.);
+        let ba = BoxArea::new(x, y, 70., 70.);
 
         Self {
-            base:BaseObject{
-                position:  Vector2f::new(px, py),
+            base: BaseObject {
+                position: Vector2f::new(x, y),
                 velocity: Vector2f::new(dx, dy),
-                acceleration: 0.,
+                acceleration: acc,
                 angle: ang,
                 is_active: true,
             },
             points: p,
             shoot_time: 0.0,
             max_shoot_time: 1.5,
+            turn_time: 0.0,
+            max_turn_time: 2.5,
             is_shooting: false,
             transform_points: [Vertex::default(); 7],
             tp: vec![Vector2f::default(); 7],
@@ -78,7 +80,6 @@ impl Ufo {
     pub fn get_box_area(&self) -> &BoxArea {
         &self.box_area
     }
-    
     pub fn is_shooting(&self) -> bool {
         self.is_shooting
     }
@@ -97,6 +98,24 @@ impl Ufo {
         }
     }
 
+    fn screen_wrap(&mut self, width: f32, height: f32, padding: f32) {
+        // screen wrap
+        let screen_edge = 0.;
+
+        if self.base.position.x > width + padding {
+            self.base.position.x = screen_edge - padding;
+        }
+        if self.base.position.x < screen_edge - padding {
+            self.base.position.x = width + padding;
+        }
+        if self.base.position.y > height + padding {
+            self.base.position.y = screen_edge - padding;
+        }
+        if self.base.position.y < screen_edge - padding {
+            self.base.position.y = height + padding;
+        }
+    }
+    
     fn update_points(&mut self) {
         for (idx, p) in self.points.iter_mut().enumerate() {
             let x = p.position.x;
@@ -107,14 +126,18 @@ impl Ufo {
 
             self.transform_points[idx].position.x = new_x;
             self.transform_points[idx].position.y = new_y;
+
+            self.transform_points[idx].color = Color::RED;
+
             self.transform_points[idx].position += self.base.position;
 
-            self.tp[idx] =  self.transform_points[idx].position;
+            self.tp[idx] = self.transform_points[idx].position;
         }
     }
 
     pub fn update(&mut self, delta: f32) {
         if self.is_active() {
+            // try and kill player!
             self.shoot_time += delta;
             if self.shoot_time >= self.max_shoot_time {
                 self.is_shooting = true;
@@ -123,9 +146,25 @@ impl Ufo {
                 self.is_shooting = false;
             }
 
+            // random new direction
+            self.turn_time += delta;
+            if self.turn_time >= self.max_turn_time {
+                // 0.0 - 6.2831
+                let new_ang = random_number(0.0, PI * 2.);
+
+                let dx = new_ang.cos() * self.base.acceleration;
+                let dy = new_ang.sin() * self.base.acceleration;
+
+                self.base.velocity = Vector2f::new(dx, dy);
+
+                self.turn_time = 0.0;
+            }
+
+            self.base.position += self.base.velocity * delta;
             self.box_area.set_position(self.get_position());
             self.box_area.update();
 
+            self.screen_wrap(SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32, 20.);
             self.update_points();
         }
     }
