@@ -100,10 +100,6 @@ impl Ship {
         self.base.angle
     }
 
-    pub fn is_moveing(&self)->bool{
-        self.is_thrusting
-    }
-
     pub fn alive(&mut self){
         self.base.is_active = true;
     }

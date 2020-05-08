@@ -46,6 +46,7 @@ impl SoundManager{
     fn load(&mut self, id:&str, file_path:&str){
         if !self.sound_map.contains_key(id){
             let new_sound = SoundBuffer::from_file(file_path);
+            
             if let Some(x) = new_sound{
                 self.sound_map.insert(String::from(id), x);
             }
@@ -54,6 +55,7 @@ impl SoundManager{
 
 
     pub fn get(&self, id: &str)->Option<&SoundBuffer>{
+
         if let Some(x) = self.sound_map.get(id){
             return Some(x);
         }
@@ -201,9 +203,16 @@ fn run(width: u32, height: u32) {
     let mut sm = SoundManager::new();
     sm.load("fire", "assets/sound/fire.wav");
     sm.load("explosion", "assets/sound/explosion.wav");
-    let mut fire_sound = Sound::with_buffer(sm.get("fire").unwrap());
-    let mut explosion_sound = Sound::with_buffer(sm.get("explosion").unwrap());
+    
+    let mut fire_sound = Sound::default();
+    let mut explosion_sound = Sound::default();
 
+    if let Some(f) = sm.get("fire"){
+        fire_sound.set_buffer(f);
+    }
+    if let Some(e) = sm.get("explosion"){
+        explosion_sound.set_buffer(e);
+    }
 
     // Ship
     let center_x = width as f32 * 0.5;
@@ -343,6 +352,8 @@ fn run(width: u32, height: u32) {
 
                                 ship.kill();
                                 b.kill();
+                                
+                                explosion_sound.play();
 
                                 break;
                             }
