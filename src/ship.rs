@@ -233,8 +233,7 @@ impl Ship {
             }
 
             if self.is_thrusting {
-                self.base.velocity.x += self.base.angle.cos() * self.base.acceleration * delta;
-                self.base.velocity.y += self.base.angle.sin() * self.base.acceleration * delta;
+                self.base.velocity += Vector2f::new(self.base.angle.cos(), self.base.angle.sin()) * self.base.acceleration * delta;
             }
 
             // slow down/top speed
